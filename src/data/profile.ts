@@ -52,7 +52,7 @@ export const profile: Profile = {
   role: 'Web Designer & Developer',
   avatarSrc: '/jiim.png',
   verifiedLabel: 'PLACEHOLDER - what the tick means (e.g. a certification)',
-  email: 'you@example.com',
+  email: 'jeanmarcaguilar829@gmail.com',
   location: 'PLACEHOLDER - your city or timezone',
   // Pick any icon from https://phosphoricons.com and import it above.
   stats: [
