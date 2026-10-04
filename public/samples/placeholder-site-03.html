@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LOOK – Lost Object Observation Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F4FA; --panel:#FFFFFF; --ink:#0F1526; --mute:#5B6479; --line:rgba(15,21,38,.12);
+  --blue:#2F6BFF; --violet:#7C4DFF; --amber:#B86E00; --glow:rgba(47,107,255,.28);
+  --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0A0E1A;--panel:#121829;--ink:#EDF0F8;--mute:#9AA3B8;--line:rgba(255,255,255,.12);--blue:#5B8DFF;--violet:#9B7BFF;--amber:#FFB547;--glow:rgba(91,141,255,.35)}
+}
+:root[data-theme="dark"]{--bg:#0A0E1A;--panel:#121829;--ink:#EDF0F8;--mute:#9AA3B8;--line:rgba(255,255,255,.12);--blue:#5B8DFF;--violet:#9B7BFF;--amber:#FFB547;--glow:rgba(91,141,255,.35)}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 72px);scroll-behavior:smooth}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1.0625rem/1.6 var(--body);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:6px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+
+/* nav */
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font:800 1.25rem var(--display);letter-spacing:.04em}
+.links{display:flex;align-items:center;gap:22px;font-size:.95rem;color:var(--mute)}
+.links a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:12px;font-weight:600;font-size:1rem;border:1px solid transparent;transition:transform .2s,box-shadow .2s,background .2s}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.primary:hover{transform:translateY(-2px);box-shadow:0 12px 28px var(--glow)}
+.btn.ghost{border-color:var(--line);color:var(--ink)}
+.btn.ghost:hover{background:var(--panel)}
+nav .btn{padding:8px 16px;font-size:.92rem}
+
+/* hero */
+.hero{padding:56px 0 72px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;width:560px;height:560px;right:-160px;top:-120px;border-radius:50%;background:radial-gradient(circle,var(--glow),transparent 70%);pointer-events:none}
+.hero .wrap{display:grid;gap:40px;align-items:center;position:relative}
+@media(min-width:920px){.hero .wrap{grid-template-columns:1fr 1.05fr;gap:56px}.hero{padding:88px 0 104px}}
+h1{font:800 clamp(2.6rem,6.2vw,4.5rem)/1 var(--display);letter-spacing:-.035em;margin:0 0 22px;max-width:11ch}
+.lede{color:var(--mute);max-width:44ch;margin:0 0 30px;font-size:1.15rem}
+.cta{display:flex;flex-wrap:wrap;gap:12px}
+.hint{margin-top:22px;font-size:.9rem;color:var(--mute)}
+
+/* lens field */
+.field{--x:50%;--y:50%;position:relative;height:420px;border:1px solid var(--line);border-radius:28px;overflow:hidden;background:
+  linear-gradient(var(--line) 1px,transparent 1px) 0 0/48px 48px,
+  linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/48px 48px,var(--panel);touch-action:pan-y;cursor:crosshair}
+.layer{position:absolute;inset:0}
+.dim{opacity:.45;filter:saturate(0)}
+.lit{-webkit-mask-image:radial-gradient(circle 120px at var(--x) var(--y),#000 72%,transparent 100%);mask-image:radial-gradient(circle 120px at var(--x) var(--y),#000 72%,transparent 100%)}
+.chip{position:absolute;display:flex;align-items:center;gap:10px;padding:8px 14px 8px 8px;border-radius:14px;border:1px solid var(--line);background:var(--bg);white-space:nowrap}
+.lit .chip{border-color:var(--blue);box-shadow:0 8px 24px var(--glow)}
+.ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--line);color:var(--ink)}
+.lit .ic{background:var(--blue);color:#fff}
+.ic svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.lb{display:flex;flex-direction:column;line-height:1.25}
+.lb b{font-size:.85rem;font-weight:600}
+.lb i{font-style:normal;font-size:.75rem;color:var(--mute)}
+.lit .lb i{color:var(--amber)}
+.lens{position:absolute;left:0;top:0;width:240px;height:240px;margin:-120px 0 0 -120px;border-radius:50%;border:1.5px solid var(--blue);transform:translate(var(--x),var(--y));pointer-events:none;box-shadow:0 0 0 1px var(--glow),inset 0 0 40px var(--glow)}
+.lens::after{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:var(--blue)}
+
+/* how it works */
+section.how{padding:88px 0;border-top:1px solid var(--line)}
+h2{font:800 clamp(1.9rem,4vw,2.9rem)/1.08 var(--display);letter-spacing:-.03em;margin:0 0 14px;max-width:16ch}
+.sub{color:var(--mute);max-width:48ch;margin:0 0 52px}
+.steps{display:grid;gap:36px;position:relative}
+@media(min-width:820px){.steps{grid-template-columns:repeat(3,1fr);gap:40px}.steps::before{content:"";position:absolute;left:18px;right:0;top:18px;height:1px;background:var(--line)}}
+.step{position:relative}
+.dot{width:37px;height:37px;border-radius:50%;display:grid;place-items:center;font:800 .95rem var(--display);background:var(--bg);border:1.5px solid var(--blue);color:var(--blue);margin-bottom:18px;position:relative}
+.step h3{font:800 1.3rem/1.2 var(--display);letter-spacing:-.02em;margin:0 0 8px}
+.step p{margin:0;color:var(--mute);max-width:32ch}
+
+/* secure band */
+.band{padding:0 0 88px}
+.panel{border:1px solid var(--line);border-radius:28px;padding:44px 32px;background:var(--panel);display:grid;gap:28px;align-items:center;position:relative;overflow:hidden}
+.panel::after{content:"";position:absolute;width:380px;height:380px;left:-120px;bottom:-200px;border-radius:50%;background:radial-gradient(circle,rgba(124,77,255,.28),transparent 70%);pointer-events:none}
+@media(min-width:820px){.panel{grid-template-columns:1.3fr auto;padding:56px}}
+.panel h2{margin-bottom:10px;max-width:18ch}
+.panel p{margin:0;color:var(--mute);max-width:46ch}
+.codes{display:flex;gap:8px;margin-top:22px}
+.codes span{width:38px;height:46px;border-radius:10px;border:1px solid var(--line);display:grid;place-items:center;font:800 1.2rem var(--display);background:var(--bg)}
+.panel>*{position:relative;z-index:1}
+
+footer{border-top:1px solid var(--line);padding:28px 0;color:var(--mute);font-size:.9rem}
+footer .wrap{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center}
+.live{display:inline-flex;align-items:center;gap:8px}
+.live::before{content:"";width:8px;height:8px;border-radius:50%;background:#22C55E}
+@media(max-width:640px){.links a.t{display:none}.field{height:380px}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="index.html" class="brand" aria-label="LOOK home">
+      <svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="9" stroke="var(--blue)" stroke-width="2.5"/><circle cx="14" cy="14" r="3" fill="var(--violet)"/><path d="m21 21 7 7" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round"/></svg>
+      LOOK
+    </a>
+    <div class="links">
+      <a class="t" href="#how">How it works</a>
+      <a class="t" href="#secure">Security</a>
+      <a class="btn primary" href="look-login.html">Sign in</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <h1>Lost something? Take a LOOK.</h1>
+      <p class="lede">LOOK is the Lost Object Observation Kit. Report what you lost, check what others found, and claim it back, all in one place.</p>
+      <div class="cta">
+        <a class="btn primary" href="look-login.html">Sign in to LOOK</a>
+        <a class="btn ghost" href="#how">See how it works</a>
+      </div>
+      <p class="hint">Move the lens over the board to see what has been found.</p>
+    </div>
+    <div class="field" id="field" role="img" aria-label="A board of lost items. A moving lens reveals which items have been found and where.">
+      <div class="layer dim" id="dim"></div>
+      <div class="layer lit" id="lit"></div>
+      <div class="lens"></div>
+    </div>
+  </div>
+</header>
+
+<section class="how" id="how">
+  <div class="wrap">
+    <h2>From lost to claimed in three steps</h2>
+    <p class="sub">Every report follows the same path, so nothing gets stuck in a box on a shelf.</p>
+    <div class="steps">
+      <div class="step"><div class="dot">1</div><h3>Report it</h3><p>Add a photo, the place, and the time. Do the same when you find something.</p></div>
+      <div class="step"><div class="dot">2</div><h3>Get matched</h3><p>LOOK compares lost and found reports, so you don't have to scroll through a long list.</p></div>
+      <div class="step"><div class="dot">3</div><h3>Claim it</h3><p>Confirm it's yours, then pick it up from the office.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="secure">
+  <div class="wrap">
+    <div class="panel">
+      <div>
+        <h2>Only you can claim your things</h2>
+        <p>Every sign-in is confirmed with a 6-digit code sent to your email. The code expires after 5 minutes.</p>
+        <div class="codes" aria-hidden="true"><span>4</span><span>8</span><span>1</span><span>7</span><span>0</span><span>2</span></div>
+      </div>
+      <a class="btn primary" href="look-login.html">Sign in to LOOK</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>LOOK · Lost Object Observation Kit</span>
+    <span class="live">System active</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var icons={
+    key:'<circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3"/>',
+    wallet:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4z"/>',
+    bottle:'<path d="M10 3h4v3l2 3v11a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V9l2-3z"/>',
+    id:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.5 5.4-1.5 6 0M14 10h4M14 13h3"/>',
+    umbrella:'<path d="M3 12a9 9 0 0 1 18 0zM12 12v6a2 2 0 0 1-4 0"/>',
+    phones:'<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>'
+  };
+  var items=[
+    ['key','House keys','Library, 2nd floor',6,10],
+    ['id','Student ID','Cafeteria',48,6],
+    ['umbrella','Blue umbrella','Main gate',10,40],
+    ['wallet','Brown wallet','Gym lobby',52,36],
+    ['bottle','Steel bottle','Room 204',8,70],
+    ['phones','Headphones','Computer lab',46,68]
+  ];
+  function build(bright){
+    return items.map(function(it){
+      return '<div class="chip" style="left:'+it[3]+'%;top:'+it[4]+'%"><span class="ic"><svg viewBox="0 0 24 24">'+icons[it[0]]+'</svg></span><span class="lb"><b>'+it[1]+'</b><i>'+(bright?'Found · ':'')+it[2]+'</i></span></div>';
+    }).join('');
+  }
+  var field=document.getElementById('field');
+  document.getElementById('dim').innerHTML=build(false);
+  document.getElementById('lit').innerHTML=build(true);
+
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var auto=!reduce,t=0,x=0,y=0;
+  function set(px,py){x=px;y=py;field.style.setProperty('--x',px+'px');field.style.setProperty('--y',py+'px')}
+  function drift(){
+    if(auto){
+      t+=.007;
+      set(field.clientWidth*(.5+.34*Math.sin(t*1.3)),field.clientHeight*(.5+.32*Math.sin(t*.9+1)));
+    }
+    requestAnimationFrame(drift);
+  }
+  field.addEventListener('pointermove',function(e){
+    var r=field.getBoundingClientRect();auto=false;set(e.clientX-r.left,e.clientY-r.top);
+  });
+  field.addEventListener('pointerleave',function(){auto=!reduce});
+  set(field.clientWidth*.28,field.clientHeight*.4);
+  if(!reduce)drift();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FleetFlow | Every vehicle, every mile, one board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+<style>
+  /* Palette from the subject: road-night, map paper, signal green (matches the login), hazard amber */
+  :root{
+    --paper:#F2F4EF; --night:#0E1B17; --night-2:#16271F; --line:#D5DAD1;
+    --signal:#12B76A; --amber:#F5A524; --muted:#5B665F; --white:#fff;
+  }
+  *{box-sizing:border-box;margin:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Bricolage Grotesque',system-ui,Arial,sans-serif;background:var(--paper);color:var(--night);line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+  :focus-visible{outline:3px solid var(--amber);outline-offset:3px}
+
+  nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:21px;text-decoration:none;letter-spacing:-.02em}
+  .logo i{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--night);color:var(--signal);font-style:normal}
+  .logo svg{width:18px;height:18px}
+  .links{display:flex;gap:28px;font-size:15px;font-weight:500}
+  .links a{text-decoration:none;color:var(--muted)}
+  .links a:hover{color:var(--night)}
+  .btn{display:inline-block;padding:13px 22px;border-radius:12px;background:var(--night);color:#fff;font-weight:700;font-size:15px;text-decoration:none;transition:transform .15s,background .15s}
+  .btn:hover{transform:translateY(-2px);background:#000}
+  .btn.go{background:var(--signal);color:#04170e}
+  .btn.go:hover{background:#2bd582}
+  .btn.out{background:transparent;color:var(--night);box-shadow:inset 0 0 0 2px var(--night)}
+  .btn.out:hover{background:var(--night);color:#fff}
+
+  .hero{display:grid;grid-template-columns:1fr 1.1fr;gap:52px;align-items:center;padding:44px 0 90px}
+  h1{font-weight:800;font-size:clamp(40px,5.4vw,70px);line-height:1;letter-spacing:-.04em}
+  .lede{font-size:19px;color:var(--muted);max-width:29em;margin:22px 0 32px}
+  .cta{display:flex;gap:12px;flex-wrap:wrap}
+
+  /* The route board: the one memorable thing */
+  .board{background:var(--night);border-radius:24px;padding:18px;color:#fff;box-shadow:0 44px 70px -42px rgba(0,0,0,.65)}
+  .map{display:block;width:100%;height:auto;border-radius:14px;background:var(--night-2)}
+  .veh{cursor:pointer}
+  .veh .ring{fill:none;stroke:#fff;stroke-width:2;opacity:0;transition:opacity .2s}
+  .veh.on .ring{opacity:1}
+  .tele{display:grid;grid-template-columns:1.3fr repeat(3,1fr);gap:12px;margin-top:14px}
+  .tele div{background:var(--night-2);border-radius:12px;padding:12px 14px}
+  .tele small{display:block;font-size:12px;color:#8fa59a}
+  .tele b{display:block;font-size:19px;font-weight:700;letter-spacing:-.01em;margin-top:2px}
+  .hint{font-size:13px;color:var(--muted);margin-top:12px;text-align:center}
+
+  section{padding:84px 0;border-top:1px solid var(--line)}
+  h2{font-weight:800;font-size:clamp(30px,3.6vw,46px);line-height:1.05;letter-spacing:-.035em;max-width:15em}
+  .rows{margin-top:44px}
+  .row{display:grid;grid-template-columns:240px 1fr 180px;gap:32px;padding:28px 0;border-top:1px solid var(--line);align-items:start}
+  .row:last-child{border-bottom:1px solid var(--line)}
+  .row h3{font-size:22px;font-weight:700;letter-spacing:-.02em}
+  .row p{color:var(--muted);max-width:34em}
+  .row strong{font-size:30px;font-weight:800;letter-spacing:-.03em;color:var(--signal);display:block;text-align:right}
+  .row strong small{display:block;font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:0}
+
+  .roles{display:grid;grid-template-columns:1fr 1.2fr;gap:56px;align-items:start}
+  .role{padding:20px 0;border-top:1px solid var(--line);display:grid;grid-template-columns:130px 1fr;gap:18px}
+  .role:last-child{border-bottom:1px solid var(--line)}
+  .role b{font-size:18px;font-weight:700}
+  .role span{color:var(--muted)}
+
+  .band{background:var(--night);color:#fff;border-radius:28px;padding:60px;text-align:left;position:relative;overflow:hidden}
+  .band::after{content:'';position:absolute;right:-40px;top:-40px;width:260px;height:260px;border-radius:50%;border:2px dashed rgba(18,183,106,.45)}
+  .band h2{color:#fff}
+  .band p{color:#9fb4a9;margin:14px 0 26px;max-width:30em}
+  footer{padding:36px 0 48px;color:var(--muted);font-size:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+
+  @media(max-width:900px){
+    .hero{grid-template-columns:1fr;gap:38px;padding-bottom:64px}
+    .links{display:none}
+    .row{grid-template-columns:1fr;gap:10px}
+    .row strong{text-align:left}
+    .roles{grid-template-columns:1fr;gap:28px}
+    .tele{grid-template-columns:1fr 1fr}
+    .band{padding:36px 26px}
+  }
+  @media(prefers-reduced-motion:reduce){.btn,.veh .ring{transition:none}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a href="#" class="logo"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg></i>FleetFlow</a>
+    <div class="links"><a href="#features">Features</a><a href="#roles">Who it's for</a><a href="#start">Get started</a></div>
+    <a href="login.html" class="btn">Sign in</a>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <h1>Every vehicle, every mile, one board.</h1>
+      <p class="lede">FleetFlow brings dispatching, mileage, fuel costs and live route telemetry into a single dashboard, so your team sees the whole fleet at a glance.</p>
+      <div class="cta"><a href="login.html" class="btn go">Sign in to dashboard</a><a href="#features" class="btn out">See what it does</a></div>
+    </div>
+
+    <div>
+      <div class="board">
+        <svg class="map" viewBox="0 0 520 380" role="img" aria-label="Live map with three vehicles driving their routes">
+          <g stroke="#23382f" stroke-width="1">
+            <path d="M0 95H520M0 190H520M0 285H520M130 0V380M260 0V380M390 0V380"/>
+          </g>
+          <path id="rA" d="M40 320 C140 300 160 190 260 180 S420 110 490 50" fill="none" stroke="#12B76A" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 9"/>
+          <path id="rB" d="M40 70 C150 90 200 150 280 220 S400 310 490 330" fill="none" stroke="#F5A524" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 9"/>
+          <path id="rC" d="M30 200 C120 225 220 265 300 280 S440 240 495 190" fill="none" stroke="#ffffff" stroke-opacity=".6" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 9"/>
+          <g fill="#0E1B17" stroke="#fff" stroke-width="2"><circle cx="40" cy="320" r="7"/><circle cx="490" cy="50" r="7"/><circle cx="40" cy="70" r="7"/><circle cx="490" cy="330" r="7"/><circle cx="30" cy="200" r="7"/><circle cx="495" cy="190" r="7"/></g>
+          <g class="veh on" data-i="0" tabindex="0" role="button" aria-label="Vehicle FF-101"><animateMotion dur="26s" repeatCount="indefinite" rotate="0"><mpath href="#rA"/></animateMotion><circle class="ring" r="15"/><circle r="8" fill="#12B76A"/></g>
+          <g class="veh" data-i="1" tabindex="0" role="button" aria-label="Vehicle FF-204"><animateMotion dur="32s" repeatCount="indefinite" rotate="0"><mpath href="#rB"/></animateMotion><circle class="ring" r="15"/><circle r="8" fill="#F5A524"/></g>
+          <g class="veh" data-i="2" tabindex="0" role="button" aria-label="Vehicle FF-318"><animateMotion dur="29s" repeatCount="indefinite" rotate="0"><mpath href="#rC"/></animateMotion><circle class="ring" r="15"/><circle r="8" fill="#ffffff"/></g>
+        </svg>
+        <div class="tele" aria-live="polite">
+          <div><small>Vehicle</small><b id="t-id">FF-101</b></div>
+          <div><small>Speed</small><b id="t-sp">62 km/h</b></div>
+          <div><small>Fuel</small><b id="t-fu">74%</b></div>
+          <div><small>Next stop</small><b id="t-st">Cebu</b></div>
+        </div>
+      </div>
+      <p class="hint">Select a vehicle to see its telemetry.</p>
+    </div>
+  </header>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <h2>Run the whole fleet from one screen.</h2>
+    <div class="rows">
+      <div class="row"><h3>Vehicle dispatching</h3><p>Assign vehicles and drivers to trips, track status from assigned to delivered, and keep everyone working from the same plan.</p><strong>1 board<small>for every trip</small></strong></div>
+      <div class="row"><h3>Mileage analytics</h3><p>See distance driven per vehicle and per route, so you can spot underused trucks and unusually long trips early.</p><strong>Per route<small>distance and trends</small></strong></div>
+      <div class="row"><h3>Fuel and maintenance</h3><p>Fuel expenses and service records are logged automatically, with costs rolled up per vehicle and per month.</p><strong>Auto-logged<small>fuel and service</small></strong></div>
+      <div class="row"><h3>Live route telemetry</h3><p>Watch drivers and routes in real time, with speed, fuel level and the next stop for each vehicle on the road.</p><strong>Real time<small>drivers and routes</small></strong></div>
+    </div>
+  </div>
+</section>
+
+<section id="roles">
+  <div class="wrap roles">
+    <h2>Built for everyone who touches the fleet.</h2>
+    <div>
+      <div class="role"><b>Admin</b><span>Manages users, vehicles and settings across the whole operation.</span></div>
+      <div class="role"><b>Manager</b><span>Reviews costs, mileage and performance to plan ahead.</span></div>
+      <div class="role"><b>Dispatcher</b><span>Assigns trips and keeps routes moving through the day.</span></div>
+      <div class="role"><b>Driver</b><span>Sees assigned trips and logs fuel and mileage on the road.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="start">
+  <div class="wrap">
+    <div class="band">
+      <h2>Know where every vehicle is, and what it costs.</h2>
+      <p>Sign in with your operator account to open your dashboard.</p>
+      <a href="login.html" class="btn go">Sign in to dashboard</a>
+    </div>
+    <footer><span>&copy; <span id="yr">2026</span> FleetFlow</span><span>Fleet management and telemetry</span></footer>
+  </div>
+</section>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+  const data = [
+    {id:'FF-101', sp:'62 km/h', fu:'74%', st:'Cebu'},
+    {id:'FF-204', sp:'48 km/h', fu:'51%', st:'Davao'},
+    {id:'FF-318', sp:'71 km/h', fu:'88%', st:'Iloilo'}
+  ];
+  const vs = [...document.querySelectorAll('.veh')];
+  function pick(i){
+    vs.forEach((v,k)=>v.classList.toggle('on',k===i));
+    const d = data[i];
+    t_id.textContent=d.id; t_sp.textContent=d.sp; t_fu.textContent=d.fu; t_st.textContent=d.st;
+  }
+  vs.forEach((v,i)=>{
+    v.addEventListener('click',()=>pick(i));
+    v.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(i)}});
+  });
+  // Respect reduced motion: park the vehicles instead of animating them
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.querySelector('.map').pauseAnimations();
+</script>
+</body>
+</html>

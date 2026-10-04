@@ -1,0 +1,547 @@
+/* ============================================
+   HOME BENTO - one card per view
+   The showcase band of Home. Six raised paper cards on a 4x2 grid that fills
+   the elastic row; every card is a link and clips its own media, so the band
+   can shrink with the viewport and Home never grows a scrollbar. Motion is
+   transform-only on inner tracks. Light plates stay light in dark mode for
+   the brand marks (see shell.css), but the cards themselves flip with the
+   theme.
+   ============================================ */
+.bento {
+  display: grid;
+  gap: clamp(10px, 1vw, 16px);
+  min-height: 0;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 1100px) {
+  .bento {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  .bento__card--projects { grid-column: span 2; }
+  .bento__card--contrib  { grid-column: span 2; }
+}
+
+.bento__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: clamp(12px, 1.4vh, 18px) clamp(12px, 1.1vw, 18px);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid var(--line-strong);
+  box-shadow:
+    0 1px 2px rgba(6, 12, 26, 0.04),
+    0 24px 50px -36px rgba(6, 12, 26, 0.45);
+  transition:
+    transform var(--dur-med) var(--ease-spring),
+    box-shadow var(--dur-med) var(--ease-out);
+}
+.bento__card:hover {
+  transform: translateY(-3px);
+  border-color: var(--orange);
+  box-shadow:
+    0 1px 2px rgba(6, 12, 26, 0.05),
+    0 32px 60px -34px rgba(6, 12, 26, 0.55);
+}
+.bento__card:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+
+/* ---------- Head ---------- */
+.bento__head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+/* Icon and title share a row: the tile is filled orange and the title is
+   caps, so the card's name is the first thing the eye lands on. */
+.bento__label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 22px;
+}
+.bento__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--orange);
+  color: var(--white);
+  box-shadow: 0 8px 18px -10px rgba(255, 122, 26, 0.9);
+  transition: transform var(--dur-med) var(--ease-spring);
+}
+.bento__card:hover .bento__icon { transform: translateY(-2px) rotate(-4deg); }
+.bento__title {
+  font-family: var(--font-display);
+  font-size: clamp(15px, 1.05vw, 18px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--navy);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.bento__card:hover .bento__title { color: var(--orange-ink); }
+.bento__desc {
+  font-size: clamp(11.5px, 0.74vw, 13px);
+  line-height: 1.4;
+  color: var(--muted);
+}
+.bento__arrow {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  color: var(--orange);
+  opacity: 0;
+  transform: translate(-4px, 4px);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-med) var(--ease-spring);
+}
+.bento__card:hover .bento__arrow { opacity: 1; transform: none; }
+
+/* ---------- Media slot ---------- */
+.bento__media {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: clamp(8px, 1.2vh, 14px);
+}
+
+/* Projects: two columns side by side in the wide card - the head on the left,
+   the drifting reel on the right. */
+.bento__card--projects { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; }
+.bento__card--projects .bento__media { margin-top: 0; grid-row: 1; grid-column: 2; }
+.bento__reel {
+  overflow: hidden;
+  border-radius: 14px;
+  mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent);
+}
+.bento__reel-track {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: bento-drift-up 22s linear infinite;
+  animation-play-state: paused;
+}
+/* Still until pointed at: three tracks drifting at once gave the eye nothing to land on. */
+.bento__card:hover .bento__reel-track { animation-play-state: running; }
+/* Each shot is a small browser window: a chrome bar with three dots over the
+   top of the page, so the crop reads as a screen, not a zoomed photo. */
+.bento__shot {
+  display: block;
+  flex: none;
+  padding: 18px 4px 4px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--line), 0 10px 24px -16px rgba(6, 12, 26, 0.6);
+}
+.bento__shot::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--orange);
+  box-shadow: 10px 0 0 var(--line-strong), 20px 0 0 var(--line-strong);
+}
+.bento__shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 7px;
+}
+@keyframes bento-drift-up {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
+}
+
+/* About: three photos fanned like a hand of cards. */
+.bento__card--about {
+  display: flex;
+  flex-direction: column;
+}
+.bento__card--about .bento__fan {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  margin-top: clamp(6px, 1vh, 14px);
+  padding: 4px 0 6px;
+  min-height: 0;
+}
+.bento__photo {
+  grid-area: 1 / 1;
+  display: block;
+  width: clamp(88px, 6.8vw, 116px);
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--plate);
+  box-shadow: 0 0 0 3px var(--white), 0 14px 28px -10px rgba(6, 12, 26, 0.55);
+  transform: rotate(calc((var(--i) - 1) * 15deg)) translateX(calc((var(--i) - 1) * 45px));
+  transition: transform var(--dur-slow) var(--ease-spring);
+}
+.bento__photo img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; }
+.bento__card:hover .bento__photo {
+  transform: rotate(calc((var(--i) - 1) * 20deg)) translateX(calc((var(--i) - 1) * 55px)) translateY(-4px);
+}
+
+/* Development Approach: six workflow steps as a compact list. */
+.bento__card--ai .bento__media { margin-top: clamp(4px, 0.7vh, 10px); }
+.bento__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  list-style: none;
+  overflow: hidden;
+  container-type: size;
+}
+.bento__step {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 3cqh, 10px);
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0 2px;
+  color: var(--navy);
+  transition: transform var(--dur-med) var(--ease-spring);
+  transition-delay: calc(var(--i, 0) * 28ms);
+}
+.bento__step + .bento__step { border-top: 1px solid var(--line); }
+.bento__step-num {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: clamp(9px, 5cqh, 11px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--navy) 32%, transparent);
+  width: clamp(16px, 10cqh, 22px);
+  text-align: center;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.bento__step-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: clamp(18px, 14cqh, 28px);
+  height: clamp(18px, 14cqh, 28px);
+  border-radius: clamp(6px, 4.5cqh, 9px);
+  background: color-mix(in srgb, var(--orange) 12%, transparent);
+  color: var(--orange);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.bento__step-icon svg { width: clamp(11px, 7.5cqh, 15px); height: clamp(11px, 7.5cqh, 15px); }
+.bento__step-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+  line-height: 1.2;
+}
+.bento__step-title {
+  font-size: clamp(11px, 6.8cqh, 13.5px);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bento__step-desc {
+  display: none;
+  font-size: clamp(10.5px, 5cqh, 11.5px);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@container (min-height: 225px) {
+  .bento__step-desc { display: block; }
+}
+.bento__card:hover .bento__step { transform: translateX(3px); }
+.bento__card:hover .bento__step-icon { background: var(--orange); color: var(--white); }
+.bento__card:hover .bento__step-num { color: var(--orange-ink); }
+@keyframes bento-drift-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* Seminars / Credentials: drifting reel of certificates and workshop photos. */
+.bento__card--creds .bento__reel {
+  flex: 1;
+  min-height: 0;
+  margin-top: clamp(8px, 1.2vh, 14px);
+}
+.bento__card--creds .bento__reel-track {
+  animation-duration: 26s;
+}
+
+/* Credentials: the GHL badge on a ring. */
+.bento__badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.bento__badge-ring {
+  display: grid;
+  place-items: center;
+  width: clamp(76px, 6.4vw, 104px);
+  height: clamp(76px, 6.4vw, 104px);
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--line), 0 0 0 8px var(--tint), 0 16px 30px -18px rgba(6, 12, 26, 0.6);
+  transition: transform var(--dur-slow) var(--ease-spring);
+}
+.bento__badge-ring img { width: 66%; height: 66%; object-fit: contain; }
+.bento__card:hover .bento__badge-ring { transform: scale(1.06) rotate(-6deg); }
+.bento__badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  background: var(--navy);
+  color: var(--cream);
+  font-size: 11px;
+  font-weight: 600;
+}
+.bento__badge-tag svg { color: var(--verified); }
+
+/* Services: the five offers, title only. */
+.bento__card--services .bento__media { margin-top: clamp(4px, 0.7vh, 10px); }
+.bento__offers {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  list-style: none;
+  overflow: hidden;
+  /* The list is a size container: five rows split its height evenly and the
+     tile and type scale from it (cqh), so the same markup fits a 720px
+     laptop and a 1440px monitor. The note line appears once there is room. */
+  container-type: size;
+}
+/* Each offer is a ledger row: orange-tinted tile, title (over a short note
+   when tall enough), its index on the right in tabular figures. Rows stagger
+   a few px right on card hover so the list reads as one object waking up. */
+.bento__offer {
+  display: flex;
+  align-items: center;
+  gap: clamp(7px, 3cqh, 10px);
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0 2px;
+  color: var(--navy);
+  transition: transform var(--dur-med) var(--ease-spring);
+  transition-delay: calc(var(--i, 0) * 28ms);
+}
+.bento__offer + .bento__offer { border-top: 1px solid var(--line); }
+.bento__offer-tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: clamp(18px, 14cqh, 28px);
+  height: clamp(18px, 14cqh, 28px);
+  border-radius: clamp(6px, 4.5cqh, 9px);
+  background: color-mix(in srgb, var(--orange) 12%, transparent);
+  color: var(--orange);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.bento__offer-tile svg { width: clamp(11px, 7.5cqh, 15px); height: clamp(11px, 7.5cqh, 15px); }
+.bento__offer-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+  line-height: 1.2;
+}
+.bento__offer-title {
+  font-size: clamp(11px, 6.8cqh, 13.5px);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bento__offer-note {
+  display: none;
+  font-size: clamp(10.5px, 5cqh, 11.5px);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bento__offer-num {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: clamp(9.5px, 5.5cqh, 11px);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--navy) 32%, transparent);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+@container (min-height: 225px) {
+  .bento__offer-note { display: block; }
+}
+.bento__card:hover .bento__offer { transform: translateX(3px); }
+.bento__card:hover .bento__offer-tile { background: var(--orange); color: var(--white); }
+.bento__card:hover .bento__offer-num { color: var(--orange-ink); }
+
+/* Contributions: stacked layout – head on top, GitHub graph below. */
+:root {
+  --contrib-0: #ebedf0;
+  --contrib-1: #9be9a8;
+  --contrib-2: #40c463;
+  --contrib-3: #30a14e;
+  --contrib-4: #216e39;
+}
+[data-theme='dark'] {
+  --contrib-0: rgba(255, 255, 255, 0.06);
+  --contrib-1: #0e4429;
+  --contrib-2: #006d32;
+  --contrib-3: #26a641;
+  --contrib-4: #39d353;
+}
+.bento__card--contrib {
+  display: flex !important;
+  flex-direction: column;
+}
+.bento__card--contrib .bento__media { margin-top: clamp(6px, 1vh, 12px); }
+.bento__contrib {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.bento__contrib-badge {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  background: var(--navy);
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.bento__contrib-graph {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 10px;
+}
+.bento__contrib-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.bento__contrib-month {
+  font-size: 9px;
+  font-weight: 600;
+  fill: var(--muted);
+  font-family: var(--font-display);
+}
+.bento__contrib-day {
+  font-size: 8px;
+  font-weight: 500;
+  fill: var(--muted);
+  font-family: var(--font-display);
+}
+.bento__contrib-cell {
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.bento__contrib-cell:hover { opacity: 0.7; }
+.bento__contrib-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 4px;
+  flex-wrap: wrap;
+}
+.bento__contrib-stat {
+  font-size: 12px;
+  color: var(--muted);
+}
+.bento__contrib-stat b {
+  font-weight: 700;
+  color: var(--navy);
+}
+.bento__contrib-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.bento__contrib-legend-label {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin: 0 2px;
+}
+.bento__contrib-legend-swatch {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 2.5px;
+}
+
+/* Below the shell breakpoint the grid has no fixed rows, so the tracks would
+   set the card height. Cap the media instead, and let the two wide cards
+   stack their media under the head - side by side they had 80px each. */
+@media (max-width: 1099px) {
+  .bento__reel, .bento__contrib, .bento__fan, .bento__steps, .bento__badge { max-height: 200px; }
+  .bento__fan { min-height: 150px; }
+  .bento__card--projects,
+  .bento__card--contrib { display: flex; flex-direction: column; }
+  .bento__card--projects .bento__media,
+  .bento__card--contrib .bento__media { margin-top: clamp(8px, 1.2vh, 14px); }
+  /* The reel runs sideways under the head: a row of browser windows at a
+     size where a page crop reads as a page, not one giant hero. */
+  .bento__reel {
+    height: 150px;
+    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  }
+  .bento__reel-track { flex-direction: row; width: max-content; animation-name: bento-drift-left; animation-duration: 26s; }
+  .bento__shot { width: 200px; }
+}
+@media (max-width: 639px) {
+  .bento__card { padding: 14px; }
+  .bento__icon { width: 32px; height: 32px; }
+}
+/* One column on phones: two 170px cards is a pair of slivers. */
+@media (max-width: 639px) {
+  .bento { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bento__reel-track { animation: none; }
+}
+
+/* Phone type floor. */
+@media (max-width: 639px) {
+  .bento__desc { font-size: 13px; }
+  .bento__badge-tag { font-size: 12px; }
+}

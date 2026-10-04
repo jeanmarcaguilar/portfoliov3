@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ParkSense | Know which bay is free before you drive in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&display=swap" rel="stylesheet">
+<style>
+  /* Palette from the subject: concrete floor, asphalt, bay-line paint, exit-sign green */
+  :root{
+    --concrete:#ECEAE4; --ink:#17191D; --asphalt:#1E2126; --asphalt-2:#2A2E35;
+    --paint:#F2C230; --sign:#1F8A5B; --muted:#5E625F; --rule:#CFCCC3;
+  }
+  *{box-sizing:border-box;margin:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Archivo',system-ui,Arial,sans-serif;background:var(--concrete);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+  :focus-visible{outline:3px solid var(--paint);outline-offset:3px}
+
+  /* Nav */
+  nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;text-decoration:none;letter-spacing:-.02em}
+  .logo i{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:var(--ink);color:var(--paint);font-style:normal;font-weight:900}
+  .nav-links{display:flex;gap:28px;font-size:15px;font-weight:500}
+  .nav-links a{text-decoration:none;color:var(--muted)}
+  .nav-links a:hover{color:var(--ink)}
+  .btn{display:inline-block;padding:13px 22px;border-radius:10px;background:var(--ink);color:#fff;font-weight:700;font-size:15px;text-decoration:none;transition:transform .15s,background .15s}
+  .btn:hover{background:#000;transform:translateY(-2px)}
+  .btn.paint{background:var(--paint);color:var(--ink)}
+  .btn.paint:hover{background:#ffd24a}
+  .btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
+  .btn.ghost:hover{background:var(--ink);color:#fff}
+
+  /* Hero */
+  .hero{display:grid;grid-template-columns:1.05fr 1fr;gap:56px;align-items:center;padding:48px 0 88px}
+  h1{font-stretch:112%;font-weight:850;font-size:clamp(40px,5.6vw,72px);line-height:1;letter-spacing:-.035em}
+  .lede{font-size:19px;color:var(--muted);max-width:30em;margin:22px 0 32px}
+  .cta{display:flex;gap:12px;flex-wrap:wrap}
+
+  /* The bay board: the one memorable thing */
+  .board{background:var(--asphalt);border-radius:22px;padding:22px 22px 18px;box-shadow:0 40px 70px -40px rgba(0,0,0,.6)}
+  .board-top{display:flex;justify-content:space-between;align-items:center;color:#fff;margin-bottom:16px}
+  .board-top b{font-size:15px;font-weight:700}
+  .count{display:flex;align-items:baseline;gap:6px;font-weight:800;font-size:34px;color:var(--paint);font-stretch:112%}
+  .count small{font-size:13px;font-weight:500;color:#9aa0a8}
+  .bays{display:grid;grid-template-columns:repeat(8,1fr);gap:0;border-top:3px solid var(--paint)}
+  .bay{position:relative;aspect-ratio:3/5;border:0;background:transparent;border-left:2px solid rgba(242,194,48,.85);cursor:pointer;padding:0;font:inherit}
+  .bay:nth-child(8n){border-right:2px solid rgba(242,194,48,.85)}
+  .bay:disabled{cursor:default}
+  .bay .no{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:10px;font-weight:700;color:#7f858e}
+  .bay.free:hover{background:rgba(31,138,91,.28)}
+  .bay.free::after{content:'';position:absolute;inset:34% 30% 40%;border-radius:3px;border:2px solid var(--sign);opacity:.9}
+  .bay.taken::after{content:'';position:absolute;inset:10% 16% 18%;border-radius:10px 10px 6px 6px;
+    background:linear-gradient(var(--asphalt-2) 0 0) padding-box;
+    background:
+      linear-gradient(#0f1114,#0f1114) 50% 26%/70% 22% no-repeat,
+      linear-gradient(#444a53,#3a3f47);
+    box-shadow:0 6px 10px -4px #000;
+    animation:drive .7s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--n)*45ms)}
+  .bay.reserved{background:repeating-linear-gradient(135deg,rgba(242,194,48,.22) 0 6px,transparent 6px 12px)}
+  .bay.reserved::after{content:'R';position:absolute;top:36%;left:0;right:0;text-align:center;font-weight:900;font-size:20px;color:var(--paint)}
+  @keyframes drive{from{transform:translateY(60%);opacity:0}to{transform:none;opacity:1}}
+  .legend{display:flex;gap:18px;margin-top:16px;font-size:12.5px;color:#aab0b8;flex-wrap:wrap}
+  .legend span::before{content:'';display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:-1px}
+  .legend .f::before{border:2px solid var(--sign)}
+  .legend .t::before{background:#444a53}
+  .legend .r::before{background:var(--paint)}
+  .hint{font-size:13px;color:var(--muted);margin-top:12px;text-align:center}
+
+  /* Sections */
+  section{padding:84px 0;border-top:1px solid var(--rule)}
+  h2{font-stretch:108%;font-weight:800;font-size:clamp(30px,3.6vw,46px);line-height:1.05;letter-spacing:-.03em;max-width:15em}
+  .features{margin-top:44px}
+  .feat{display:grid;grid-template-columns:230px 1fr 1fr;gap:32px;padding:30px 0;border-top:1px solid var(--rule);align-items:start}
+  .feat:last-child{border-bottom:1px solid var(--rule)}
+  .feat h3{font-size:22px;font-weight:750;letter-spacing:-.02em}
+  .feat p{color:var(--muted);max-width:32em}
+  .feat ul{list-style:none;padding:0;font-size:15px;font-weight:500}
+  .feat li{padding:6px 0 6px 22px;position:relative}
+  .feat li::before{content:'';position:absolute;left:0;top:14px;width:10px;height:3px;background:var(--paint);border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.06)}
+
+  /* Sequence: a real one, entry to exit */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);margin-top:48px;border-top:3px solid var(--ink)}
+  .step{padding:26px 28px 0 0}
+  .step + .step{padding-left:28px;border-left:2px dashed var(--rule)}
+  .step b{display:block;font-size:13px;font-weight:700;color:var(--sign);margin-bottom:8px}
+  .step h3{font-size:22px;font-weight:750;margin-bottom:8px;letter-spacing:-.02em}
+  .step p{color:var(--muted);font-size:15.5px}
+
+  /* Numbers + CTA */
+  .band{background:var(--ink);color:#fff;border-radius:26px;padding:56px;display:grid;grid-template-columns:1.2fr 1fr;gap:40px;align-items:center}
+  .band h2{color:#fff}
+  .band p{color:#aab0b8;margin-top:14px;max-width:30em}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  .stats div{border-left:3px solid var(--paint);padding-left:16px}
+  .stats strong{display:block;font-size:34px;font-weight:850;font-stretch:112%;letter-spacing:-.02em}
+  .stats span{font-size:13px;color:#aab0b8}
+  .band .cta{margin-top:26px}
+
+  footer{padding:36px 0 48px;color:var(--muted);font-size:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+
+  @media(max-width:900px){
+    .hero{grid-template-columns:1fr;gap:40px;padding-bottom:64px}
+    .nav-links{display:none}
+    .feat{grid-template-columns:1fr;gap:12px}
+    .steps{grid-template-columns:1fr}
+    .step + .step{border-left:0;border-top:2px dashed var(--rule);padding-left:0;margin-top:26px;padding-top:26px}
+    .band{grid-template-columns:1fr;padding:34px 26px}
+  }
+  @media(prefers-reduced-motion:reduce){.bay.taken::after{animation:none}.btn{transition:none}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a href="#" class="logo"><i>P</i>ParkSense</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#start">Get started</a>
+    </div>
+    <a href="dashboard.html" class="btn">Open dashboard</a>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <h1>Know which bay is free before you drive in.</h1>
+      <p class="lede">ParkSense tracks every space in your lot in real time, from the gate to the exit, so drivers stop circling and your team stops guessing.</p>
+      <div class="cta">
+        <a href="#start" class="btn paint">Start managing your lot</a>
+        <a href="#how" class="btn ghost">See how it works</a>
+      </div>
+    </div>
+
+    <div>
+      <div class="board" aria-label="Interactive parking bay preview">
+        <div class="board-top">
+          <b>Level 1 &middot; Zone A</b>
+          <div class="count"><span id="free">0</span><small>free of <span id="total">0</span></small></div>
+        </div>
+        <div class="bays" id="bays"></div>
+        <div class="legend">
+          <span class="f">Free</span><span class="t">Occupied</span><span class="r">Reserved</span>
+        </div>
+      </div>
+      <p class="hint">Tap a free bay to reserve it.</p>
+    </div>
+  </header>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <h2>Everything a busy lot needs, in one place.</h2>
+    <div class="features">
+      <div class="feat">
+        <h3>Live occupancy</h3>
+        <p>See available, occupied, reserved and out-of-service spaces update as cars come and go, zone by zone.</p>
+        <ul><li>Occupancy rate and demand level</li><li>Zone-by-zone bars</li><li>Parking map view</li></ul>
+      </div>
+      <div class="feat">
+        <h3>Entry, exit and billing</h3>
+        <p>Log vehicles in and out in seconds. Sessions close and fees are calculated without paper tickets.</p>
+        <ul><li>Active and completed sessions</li><li>Daily revenue totals</li><li>Registered vehicle records</li></ul>
+      </div>
+      <div class="feat">
+        <h3>Reservations</h3>
+        <p>Hold a space ahead of time so regulars always have a spot waiting when they arrive.</p>
+        <ul><li>Reserve a specific bay</li><li>Notifications for staff</li><li>Full activity log</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <h2>One car's trip through the lot.</h2>
+    <div class="steps">
+      <div class="step"><b>At the gate</b><h3>Register the entry</h3><p>Record the plate and assign a bay. The space flips to occupied instantly.</p></div>
+      <div class="step"><b>While parked</b><h3>Watch the lot</h3><p>The dashboard shows demand, zone fill levels and any alerts as they happen.</p></div>
+      <div class="step"><b>On the way out</b><h3>Close and collect</h3><p>Log the exit, calculate the fee, and free the bay for the next car.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="start">
+  <div class="wrap">
+    <div class="band">
+      <div>
+        <h2>Run a lot that always knows its own state.</h2>
+        <p>Open the dashboard and see your spaces, sessions and revenue the moment you log in.</p>
+        <div class="cta"><a href="dashboard.html" class="btn paint">Open dashboard</a></div>
+      </div>
+      <div class="stats">
+        <div><strong>24/7</strong><span>live space tracking</span></div>
+        <div><strong>4 zones</strong><span>monitored at once</span></div>
+        <div><strong>1 screen</strong><span>for entry and exit</span></div>
+        <div><strong>0 paper</strong><span>tickets to lose</span></div>
+      </div>
+    </div>
+    <footer><span>&copy; 2026 ParkSense</span><span>Smart parking management</span></footer>
+  </div>
+</section>
+
+<script>
+  // 32 bays: a fixed starting layout so the page looks the same every load
+  const layout = "TTFTFFTTFFTFTTFFTFFFTTFTFFFTTFFF"; // T taken, F free
+  const bays = document.getElementById('bays');
+  const state = [...layout].map(c => c === 'T' ? 'taken' : 'free');
+
+  state.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.style.setProperty('--n', i);
+    b.innerHTML = '<span class="no">' + (i + 1) + '</span>';
+    b.addEventListener('click', () => {
+      if (state[i] === 'free') state[i] = 'reserved';
+      else if (state[i] === 'reserved') state[i] = 'free';
+      render();
+    });
+    bays.appendChild(b);
+  });
+
+  function render() {
+    [...bays.children].forEach((b, i) => {
+      b.className = 'bay ' + state[i];
+      b.disabled = state[i] === 'taken';
+      b.setAttribute('aria-label', 'Bay ' + (i + 1) + ', ' + state[i]);
+    });
+    document.getElementById('free').textContent = state.filter(s => s === 'free').length;
+    document.getElementById('total').textContent = state.length;
+  }
+  render();
+</script>
+</body>
+</html>

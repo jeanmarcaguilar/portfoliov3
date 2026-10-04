@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HelpDeskAI - AI-Powered IT Helpdesk</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+.nav a:hover{color:#4B3FE0}
+.card{background:#fff;border:1px solid #E3E7F0;border-radius:24px;padding:28px;display:flex;flex-direction:column;gap:12px;transition:transform .2s}
+.card:hover{transform:translateY(-4px)}
+.num{font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:700;color:#4B3FE0;letter-spacing:.08em}
+.card h3{margin:0;font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:700;color:#0F1A2B}
+.card p{margin:0;font-size:15px;line-height:1.55;color:#4A566B}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.btn{display:inline-flex;align-items:center;min-height:48px;padding:0 26px;border-radius:999px;font-weight:600;font-size:16px}
+@media(max-width:760px){.hero{flex-direction:column !important}.nav .links{display:none !important}}
+</style>
+
+</head>
+<body>
+
+<div style="font-family:'Figtree',sans-serif;background:#F3F5F9;color:#0F1A2B;min-height:100vh">
+
+<div class="nav" style="max-width:1200px;margin:0 auto;padding:28px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px">
+<a href="#top" style="display:flex;align-items:center;gap:10px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:22px">
+<svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true"><rect width="30" height="30" rx="10" fill="#4B3FE0"/><path d="M9 15.5l4 4 8-9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+HelpDeskAI
+</a>
+<div class="links" style="display:flex;gap:32px;font-weight:500;font-size:15px;color:#4A566B">
+<a href="#features">Features</a><a href="#how">How it works</a><a href="#roles">Roles</a><a href="#kb">Knowledge base</a>
+</div>
+<a href="#start" class="btn" style="background:#0F1A2B;color:#fff;min-height:44px;padding:0 22px;font-size:15px">Sign in</a>
+</div>
+
+<div id="top" class="hero" style="max-width:1200px;margin:0 auto;padding:56px 32px 96px;display:flex;align-items:center;gap:64px">
+<div style="flex:1.1;display:flex;flex-direction:column;gap:28px">
+<span style="align-self:flex-start;background:#DDF7EF;color:#0B6B55;font-weight:600;font-size:14px;padding:8px 16px;border-radius:999px">AI-powered IT support</span>
+<h1 style="margin:0;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:68px;line-height:1.02;letter-spacing:-0.03em">Every IT issue, <span style="color:#4B3FE0">sorted</span> before you ask twice.</h1>
+<p style="margin:0;font-size:19px;line-height:1.6;color:#4A566B;max-width:520px">One calm place for employees to report problems, for technicians to resolve them, and for admins to see how support is really performing.</p>
+<div style="display:flex;gap:14px;flex-wrap:wrap">
+<a href="#start" class="btn" style="background:#4B3FE0;color:#fff">Submit a ticket</a>
+<a href="#features" class="btn" style="background:#fff;color:#0F1A2B;border:1px solid #D5DBE8">Explore features</a>
+</div>
+</div>
+
+<div style="flex:1;position:relative;min-height:420px;width:100%;max-width:480px">
+<div style="position:absolute;inset:30px 0 0 30px;background:#DCD7FF;border-radius:36px"></div>
+<div style="position:relative;background:#fff;border-radius:28px;padding:26px;box-shadow:0 30px 60px -30px rgba(15,26,43,.35);display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#4A566B"><span style="font-weight:600">Ticket #1042</span><span style="background:#FFE9D6;color:#9A4A06;padding:5px 12px;border-radius:999px;font-weight:600">High priority</span></div>
+<div style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:700;line-height:1.2">Can’t connect to the office VPN</div>
+<div style="display:flex;gap:8px;align-items:center;font-size:14px;color:#4A566B">
+<span style="width:8px;height:8px;border-radius:50%;background:#4B3FE0"></span>AI categorized as <b style="color:#0F1A2B">Network</b>
+</div>
+<div style="height:1px;background:#E3E7F0"></div>
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:40px;height:40px;border-radius:50%;background:#7EE8C7;display:flex;align-items:center;justify-content:center;font-weight:700">T</div>
+<div style="font-size:14px;line-height:1.4"><b>Assigned to a technician</b><br><span style="color:#4A566B">Matched by category and workload</span></div>
+</div>
+<div style="background:#F3F5F9;border-radius:16px;padding:14px 16px;font-size:14px;line-height:1.5;color:#2B3750">Technician: Please try reconnecting after updating your client. Reply here if it persists.</div>
+<div style="display:flex;gap:6px;font-size:13px;font-weight:600">
+<span style="flex:1;text-align:center;padding:8px;border-radius:12px;background:#0F1A2B;color:#fff">Open</span>
+<span style="flex:1;text-align:center;padding:8px;border-radius:12px;background:#E9ECF4;color:#4A566B">In progress</span>
+<span style="flex:1;text-align:center;padding:8px;border-radius:12px;background:#E9ECF4;color:#4A566B">Resolved</span>
+</div>
+</div>
+</div>
+</div>
+
+<div id="features" style="max-width:1200px;margin:0 auto;padding:40px 32px 96px;display:flex;flex-direction:column;gap:44px">
+<div style="display:flex;flex-direction:column;gap:14px;max-width:640px">
+<span class="num">FEATURES</span>
+<h2 style="margin:0;font-family:'Bricolage Grotesque',sans-serif;font-size:46px;line-height:1.08;letter-spacing:-0.02em;font-weight:700">Everything support needs, nothing it doesn’t.</h2>
+</div>
+<div class="grid">
+<div class="card"><span class="num">01</span><h3>Ticket management</h3><p>Employees submit and track IT issues from one simple form, with status always in view.</p></div>
+<div class="card"><span class="num">02</span><h3>Smart categorization</h3><p>AI sorts each request into Hardware, Software, Network or Account the moment it arrives.</p></div>
+<div class="card"><span class="num">03</span><h3>Technician assignment</h3><p>Route tickets to the right person by category, priority or current workload.</p></div>
+<div class="card"><span class="num">04</span><h3>Admin dashboard</h3><p>Open issues, resolution time and technician performance in a single glance.</p></div>
+<div class="card"><span class="num">05</span><h3>Ticket conversation</h3><p>Employees and technicians talk inside the ticket, so context never gets lost in email.</p></div>
+<div class="card"><span class="num">06</span><h3>Notifications</h3><p>Instant updates when a ticket is assigned, resolved or reopened.</p></div>
+<div id="kb" class="card"><span class="num">07</span><h3>Knowledge base</h3><p>Searchable solutions to common IT problems, so many issues solve themselves.</p></div>
+<div class="card"><span class="num">08</span><h3>Reports and analytics</h3><p>Track ticket volume, response time and resolution rate over time.</p></div>
+<div class="card"><span class="num">09</span><h3>Role-based access</h3><p>Admin, IT Staff and Employee roles see exactly what they should.</p></div>
+</div>
+</div>
+
+<div id="how" style="background:#0F1A2B;color:#fff;padding:96px 32px">
+<div style="max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:700;letter-spacing:.08em;color:#7EE8C7">HOW IT WORKS</span>
+<h2 style="margin:0;font-family:'Bricolage Grotesque',sans-serif;font-size:46px;line-height:1.08;letter-spacing:-0.02em;font-weight:700;max-width:640px">From problem to resolved in three steps.</h2>
+</div>
+<div class="grid">
+<div style="border-top:2px solid #7EE8C7;padding-top:24px;display:flex;flex-direction:column;gap:10px"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:56px;font-weight:700;color:#7EE8C7;line-height:1">1</div><h3 style="margin:0;font-size:22px;font-family:'Bricolage Grotesque',sans-serif">Describe the issue</h3><p style="margin:0;color:#B8C2D6;line-height:1.55">Employees write what’s wrong in plain words. No forms to decode.</p></div>
+<div style="border-top:2px solid #B9A7FF;padding-top:24px;display:flex;flex-direction:column;gap:10px"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:56px;font-weight:700;color:#B9A7FF;line-height:1">2</div><h3 style="margin:0;font-size:22px;font-family:'Bricolage Grotesque',sans-serif">AI sorts and routes</h3><p style="margin:0;color:#B8C2D6;line-height:1.55">The ticket is categorized and assigned to the best-fit technician.</p></div>
+<div style="border-top:2px solid #FFB98A;padding-top:24px;display:flex;flex-direction:column;gap:10px"><div style="font-family:'Bricolage Grotesque',sans-serif;font-size:56px;font-weight:700;color:#FFB98A;line-height:1">3</div><h3 style="margin:0;font-size:22px;font-family:'Bricolage Grotesque',sans-serif">Resolve and learn</h3><p style="margin:0;color:#B8C2D6;line-height:1.55">Fixes are tracked, confirmed, and fed into reports and the knowledge base.</p></div>
+</div>
+</div>
+</div>
+
+<div id="roles" style="max-width:1200px;margin:0 auto;padding:96px 32px;display:flex;flex-direction:column;gap:44px">
+<div style="display:flex;flex-direction:column;gap:14px;max-width:640px">
+<span class="num">ROLES</span>
+<h2 style="margin:0;font-family:'Bricolage Grotesque',sans-serif;font-size:46px;line-height:1.08;letter-spacing:-0.02em;font-weight:700">Built for the three people in every ticket.</h2>
+</div>
+<div class="grid">
+<div class="card" style="background:#DDF7EF;border-color:#DDF7EF"><h3>Employees</h3><p style="color:#2B5A4D">Report an issue, follow its progress, chat with the technician and search the knowledge base.</p></div>
+<div class="card" style="background:#DCD7FF;border-color:#DCD7FF"><h3>IT Staff</h3><p style="color:#3A3470">See assigned tickets, reply in the conversation and mark issues resolved.</p></div>
+<div class="card" style="background:#FFE9D6;border-color:#FFE9D6"><h3>Admins</h3><p style="color:#6B4220">Manage users and routing, and monitor volume, response time and team performance.</p></div>
+</div>
+</div>
+
+<div id="start" style="max-width:1200px;margin:0 auto;padding:0 32px 96px">
+<div style="background:#4B3FE0;color:#fff;border-radius:40px;padding:72px 40px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:24px">
+<h2 style="margin:0;font-family:'Bricolage Grotesque',sans-serif;font-size:48px;line-height:1.08;letter-spacing:-0.02em;max-width:620px">Give your IT team room to breathe.</h2>
+<p style="margin:0;font-size:18px;line-height:1.55;max-width:480px;color:#E6E3FF">Start routing, tracking and resolving requests in one place.</p>
+<a href="#top" class="btn" style="background:#fff;color:#0F1A2B">Get started</a>
+</div>
+</div>
+
+<div style="max-width:1200px;margin:0 auto;padding:0 32px 48px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;font-size:14px;color:#5B667B">
+<span>HelpDeskAI · AI-Powered IT Helpdesk &amp; Support Management</span><span>© [YEAR] [YOUR COMPANY]</span>
+</div>
+
+</div>
+
+</body>
+</html>
