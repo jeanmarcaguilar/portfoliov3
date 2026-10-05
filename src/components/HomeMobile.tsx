@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { SealCheck, CaretRight, Play, Stack, Coffee } from '@/components/slab'
+import { SealCheck, CaretRight, Play, Gear } from '@/components/slab'
 import { profile } from '@/data/profile'
 import QuickMenu from './QuickMenu'
 
@@ -47,11 +47,9 @@ export function HomeStats() {
 }
 
 const TILES = [
-  { n: '01', label: 'Projects', to: '/projects', title: 'PLACEHOLDER - projects headline', desc: 'Tell me what to put here.', img: '/placeholders/project-1.jpg' },
-  { n: '02', label: 'Services', to: '/services', title: 'PLACEHOLDER - services headline', desc: 'Tell me what to put here.', Icon: Stack },
-  { n: '03', label: 'Showcase', to: '/showcase', title: 'PLACEHOLDER - your flagship', desc: 'Tell me what to put here.', Icon: Coffee, accent: true },
-  { n: '04', label: 'Testimonials', to: '/testimonials', title: 'PLACEHOLDER - testimonials headline', desc: 'Tell me what to put here.', img: '/placeholders/testimonial-1.jpg' },
-  { n: '05', label: 'About', to: '/about', title: `Hi, I'm ${profile.firstName}.`, desc: 'PLACEHOLDER - one line about you.', img: profile.avatarSrc },
+  { n: '01', label: 'Projects', to: '/projects', title: 'Featured Work', desc: 'Selected web applications and full-stack projects.', img: '/placeholders/FleetFlow.jpg' },
+  { n: '02', label: 'Gear', to: '/services', title: 'Accessories', desc: 'The hardware and tools I use to build, create, and stay productive.', Icon: Gear },
+  { n: '03', label: 'About', to: '/about', title: `Hi, I'm ${profile.firstName}.`, desc: 'PLACEHOLDER - one line about you.', img: '/placeholders/flagship.jpg' },
 ] as const
 
 export function HomeExplore() {
@@ -82,21 +80,19 @@ export function HomeExplore() {
       {/* A header that links carries its chevron on the title itself. */}
       <div className="hsec">
         <h2 className="hsec__title">
-          <Link to="/testimonials" className="hsec__link">
-            What clients say
+          <Link to="/seminars" className="hsec__link">
+            My seminars
             <CaretRight size={16} weight="bold" aria-hidden="true" />
           </Link>
         </h2>
       </div>
-      <Link to="/testimonials" className="hproof" aria-label="Client testimonial. PLACEHOLDER - a one-line teaser for your best testimonial.">
+      <Link to="/seminars" className="hproof" aria-label="Seminar. PLACEHOLDER - a one-line teaser for your best seminar.">
         <span className="hproof__stage">
-          <img src="/placeholders/testimonial-1.jpg" alt="" loading="lazy" />
-          <span className="hproof__play" aria-hidden="true"><Play size={20} weight="fill" /></span>
-          <span className="hproof__dur" aria-hidden="true">0:00</span>
+          <img src="/placeholders/extension-1.png" alt="" loading="lazy" />
         </span>
         <span className="hproof__copy">
-          <span className="hproof__title">PLACEHOLDER - tell me what to put here: a one-line teaser for your best testimonial.</span>
-          <span className="hproof__meta">PLACEHOLDER - client role</span>
+          <span className="hproof__title">Seminars & Certifications</span>
+          <span className="hproof__meta">Continuous learning and practical workshops that expand my knowledge in modern engineering, architecture, and technology leadership.</span>
         </span>
       </Link>
     </>

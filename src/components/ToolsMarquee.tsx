@@ -38,28 +38,28 @@ type Tool = {
 }
 
 export const tools: Tool[] = [
-  { name: 'Figma',         iconPath: '/icons/figma.svg',         color: '#F24E1E' },
-  { name: 'Framer',        iconPath: '/icons/framer.svg',        color: '#0055FF' },
-  { name: 'HTML5',         iconPath: '/icons/html5.svg',         color: '#E34F26' },
-  { name: 'CSS3',          iconPath: '/icons/css3.svg',          color: '#1572B6' },
-  { name: 'JavaScript',    iconPath: '/icons/javascript.svg',    color: '#F7DF1E' },
-  { name: 'TypeScript',    iconPath: '/icons/typescript.svg',    color: '#3178C6' },
-  { name: 'React',         iconPath: '/icons/react.svg',         color: '#61DAFB' },
-  { name: 'Tailwind CSS',  iconPath: '/icons/tailwindcss.svg',   color: '#06B6D4' },
-  { name: 'Vite',          iconPath: '/icons/vite.svg',          color: '#646CFF' },
-  { name: 'Node.js',       iconPath: '/icons/nodejs.svg',        color: '#339933' },
-  { name: 'Laravel',       iconPath: '/icons/laravel.svg',       color: '#FF2D20' },
-  { name: 'Python',        iconPath: '/icons/python.svg',        color: '#3776AB' },
-  { name: 'MySQL',         iconPath: '/icons/mysql.svg',         color: '#4479A1' },
-  { name: 'REST API',      iconPath: '/icons/restapi.svg',       color: '#000000' },
-  { name: 'ChatGPT',       iconPath: '/icons/chatgpt.svg',       color: '#00A67E' },
+  { name: 'Figma',         iconPath: 'https://cdn.simpleicons.org/figma' },
+  { name: 'Framer',        iconPath: 'https://cdn.simpleicons.org/framer' },
+  { name: 'HTML5',         iconPath: 'https://cdn.simpleicons.org/html5' },
+  { name: 'CSS3',          iconPath: 'https://cdn.simpleicons.org/css3' },
+  { name: 'JavaScript',    iconPath: 'https://cdn.simpleicons.org/javascript' },
+  { name: 'TypeScript',    iconPath: 'https://cdn.simpleicons.org/typescript' },
+  { name: 'React',         iconPath: '/icons/ai/react.svg',         color: '#61DAFB' },
+  { name: 'Tailwind CSS',  iconPath: '/icons/ai/tailwindcss.svg',   color: '#06B6D4' },
+  { name: 'Vite',          iconPath: '/icons/ai/vite.svg',          color: '#646CFF' },
+  { name: 'Node.js',       iconPath: '/icons/ai/nodedotjs.svg',        color: '#339933' },
+  { name: 'Laravel',       iconPath: 'https://cdn.simpleicons.org/laravel' },
+  { name: 'Python',        iconPath: 'https://cdn.simpleicons.org/python' },
+  { name: 'MySQL',         iconPath: 'https://cdn.simpleicons.org/mysql' },
+  { name: 'REST API',      iconPath: 'https://cdn.simpleicons.org/fastapi' },
+  { name: 'ChatGPT',       iconPath: '/icons/openai.svg' },
   { name: 'Claude Code',   iconPath: '/icons/claude-code-logo.png' },
-  { name: 'Hugging Face',  iconPath: '/icons/huggingface.svg',   color: '#FFD21E' },
-  { name: 'Open AI',       iconPath: '/icons/openai.svg',        color: '#412991' },
-  { name: 'Git',           iconPath: '/icons/git.svg',           color: '#F05032' },
-  { name: 'GitHub',        iconPath: '/icons/github.svg',        color: '#181717' },
+  { name: 'Hugging Face',  iconPath: 'https://cdn.simpleicons.org/huggingface' },
+  { name: 'Open AI',       iconPath: '/icons/openai.svg' },
+  { name: 'Git',           iconPath: 'https://cdn.simpleicons.org/git' },
+  { name: 'GitHub',        iconPath: '/icons/ai/github.svg',        color: '#181717' },
   { name: 'VS Code',       iconPath: '/icons/vscode.svg' },
-  { name: 'Discord',       iconPath: '/icons/discord.svg',       color: '#5865F2' },
+  { name: 'Discord',       iconPath: '/icons/discord.svg' },
 ]
 
 export default function ToolsMarquee() {
@@ -71,7 +71,8 @@ export default function ToolsMarquee() {
     <section className="tools-marquee" aria-label="Tools I work with" data-reveal>
       <div className="tools-marquee__track" aria-hidden="true">
         {doubled.map((tool, i) => {
-          const useMask = tool.iconPath.endsWith('.svg') && !!tool.color
+          // Use CSS mask for local SVG files with a color, otherwise use img tag
+          const useMask = !tool.iconPath.startsWith('http') && tool.iconPath.endsWith('.svg') && !!tool.color
           return (
             <div key={`${tool.name}-${i}`} className="tools-marquee__item">
               {/* A plain box on desktop (display: contents); on phones it is

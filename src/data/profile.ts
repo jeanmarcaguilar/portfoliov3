@@ -56,9 +56,9 @@ export const profile: Profile = {
   location: 'PLACEHOLDER - your city or timezone',
   // Pick any icon from https://phosphoricons.com and import it above.
   stats: [
-    { value: '0 yrs', label: 'PLACEHOLDER', Icon: Briefcase },
-    { value: '#000', label: 'PLACEHOLDER', Icon: SealCheck },
-    { value: 'GMT+0', label: 'PLACEHOLDER', Icon: Clock },
+    { value: '2025-2026', label: 'Graduated', Icon: Briefcase },
+    { value: 'BSIT', label: 'Degree', Icon: SealCheck },
+    { value: 'GMT+8', label: 'Timezone', Icon: Clock },
   ],
   // The intro types this line, then flies it into the Home headline.
   // Keep it short: two halves, 5-8 words total.
