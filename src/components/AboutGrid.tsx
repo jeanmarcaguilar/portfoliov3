@@ -66,14 +66,6 @@ export default function AboutGrid() {
     }, 140)
   }
 
-  const handleWheel = (e: React.WheelEvent<HTMLElement>) => {
-    // Forcefully intercept high-polling gaming mouse delta inputs and scroll the container directly
-    e.preventDefault()
-    e.stopPropagation()
-    const target = e.currentTarget
-    target.scrollTop += e.deltaY * 0.5
-  }
-
   return (
     <section
       className="pgrid agrid"
