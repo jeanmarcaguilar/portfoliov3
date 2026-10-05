@@ -271,7 +271,7 @@ export default function ProjectsGrid() {
 
       {phone && (
         <div className="pfilter" role="group" aria-label="Filter projects">
-          {FILTERS.map((f) => (
+          {FILTERS.filter((f) => f.key !== 'ai').map((f) => (
             <button
               key={f.key}
               type="button"

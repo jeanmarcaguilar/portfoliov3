@@ -194,7 +194,23 @@ function GearCard({ item }: { item: GearItem }) {
 
 export default function ServicesGrid() {
   return (
-    <>
+    <section
+      className="pgrid sgrid"
+      aria-labelledby="gear-title"
+      onWheel={(e) => {
+        // Forcefully intercept high-polling gaming mouse delta inputs and scroll the container directly
+        e.preventDefault()
+        e.stopPropagation()
+        const target = e.currentTarget
+        target.scrollTop += e.deltaY * 0.5
+      }}
+      style={{
+        maxHeight: '100vh',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
       <header className="pgrid__head">
         <span className="pgrid__eyebrow">Gear</span>
         <h1 className="pgrid__title" id="gear-title">
@@ -257,6 +273,6 @@ export default function ServicesGrid() {
           ))}
         </div>
       </div>
-    </>
+    </section>
   )
 }

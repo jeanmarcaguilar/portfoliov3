@@ -71,8 +71,21 @@
   }
 }
 @media (max-width: 1099px) {
-  .sgrid { height: auto !important; max-height: none !important; }
+  .sgrid { height: 100% !important; max-height: 100vh !important; }
 }
+
+/* Higher specificity + !important so shared .pgrid rules (overflow: hidden,
+   fixed heights) can't switch scrolling back off. */
+.pgrid.sgrid {
+  height: 100% !important;
+  max-height: 100vh !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column;
+}
+
 .home__glass.sgrid__glass {
   align-self: start;
   grid-row: auto;

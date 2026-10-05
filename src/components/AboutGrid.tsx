@@ -66,9 +66,6 @@ export default function AboutGrid() {
     }, 140)
   }
 
-  // Check if device has touch support (mobile)
-  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-
   const handleWheel = (e: React.WheelEvent<HTMLElement>) => {
     // Forcefully intercept high-polling gaming mouse delta inputs and scroll the container directly
     e.preventDefault()
@@ -81,9 +78,15 @@ export default function AboutGrid() {
     <section
       className="pgrid agrid"
       aria-labelledby="about-title"
-      onWheel={!isTouchDevice ? handleWheel : undefined}
+      onWheel={(e) => {
+        // Forcefully intercept high-polling gaming mouse delta inputs and scroll the container directly
+        e.preventDefault()
+        e.stopPropagation()
+        const target = e.currentTarget
+        target.scrollTop += e.deltaY * 0.5
+      }}
       style={{
-        maxHeight: isTouchDevice ? 'none' : '100vh',
+        maxHeight: '100vh',
         overflowY: 'auto',
         overscrollBehavior: 'contain',
         WebkitOverflowScrolling: 'touch',

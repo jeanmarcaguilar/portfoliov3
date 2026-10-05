@@ -64,7 +64,7 @@
    fixed heights) can't switch scrolling back off. */
 .pgrid.agrid {
   height: 100% !important;
-  max-height: 100% !important;
+  max-height: 100vh !important;
   min-height: 0 !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;

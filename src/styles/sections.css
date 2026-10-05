@@ -2422,6 +2422,28 @@
   margin-right: auto;
 }
 
+@media (max-width: 768px) {
+  .capstone__containers {
+    grid-template-columns: 1fr;
+  }
+
+  .capstone__container {
+    min-height: auto;
+  }
+
+  .capstone__body {
+    padding: 20px;
+  }
+
+  .capstone__title {
+    font-size: 18px;
+  }
+
+  .capstone__desc {
+    font-size: 13px;
+  }
+}
+
 .capstone__container {
   display: flex;
   flex-direction: column;
