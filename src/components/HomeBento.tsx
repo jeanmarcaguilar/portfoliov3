@@ -1,4 +1,5 @@
 import type React from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowUpRight,
@@ -17,6 +18,10 @@ import {
   type Icon,
 } from '@/components/slab'
 import { websiteFunnel, type Funnel } from '@/data/funnels'
+
+
+import type { ContributionStats } from '@/lib/github'
+
 import aboutCard1 from '../assets/images/about_card_1.jpg'
 import aboutCard2 from '../assets/images/about_card_2.jpg'
 import aboutCard3 from '../assets/images/about_card_3.jpg'
@@ -80,61 +85,36 @@ const OFFERS = [
 ] as const
 
 /* ---------- GitHub-style contribution graph ---------- */
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const DAY_LABELS = ['Mon', 'Wed', 'Fri']
 const WEEKS = 52
 const DAYS_PER_WEEK = 7
 
-/** Generate a full year of realistic-looking contribution counts. */
-function generateContributions(): number[][] {
-  const seed = 42
-  const rng = (i: number) => {
-    const x = Math.sin(seed + i * 127.1) * 43758.5453
-    return x - Math.floor(x)
-  }
-  const grid: number[][] = []
-  let idx = 0
-  let totalCommits = 0
-  for (let w = 0; w < WEEKS; w++) {
-    const week: number[] = []
-    for (let d = 0; d < DAYS_PER_WEEK; d++) {
-      const r = rng(idx++)
-      // Weighted toward low counts with occasional bursts
-      const isWeekend = d === 0 || d === 6
-      const burstChance = rng(idx + 999) > 0.7
-      let count = 0
-      if (r > 0.3) count = Math.floor(r * 4)
-      if (burstChance && !isWeekend) count = Math.floor(r * 12) + 3
-      if (isWeekend && r < 0.6) count = 0
-      totalCommits += count
-      week.push(count)
-    }
-    grid.push(week)
-  }
-  // Store total on the grid object for display
-  ; (grid as any).__total = totalCommits
-  return grid
-}
+/**
+ * Compute which week index each calendar month starts at, based on the
+ * actual Sunday that opens the 52-week grid. This mirrors what GitHub does.
+ */
+function computeMonthLabels(weeks: number): { label: string; weekIndex: number }[] {
+  const today = new Date()
+  const start = new Date(today)
+  start.setDate(start.getDate() - weeks * 7)
+  // Snap back to the nearest Sunday
+  start.setDate(start.getDate() - start.getDay())
 
-const CONTRIB_DATA = generateContributions()
-const TOTAL_COMMITS = (CONTRIB_DATA as any).__total as number
+  const labels: { label: string; weekIndex: number }[] = []
+  let lastMonth = -1
 
-/** Find streak and best day from the contribution data. */
-function getContribStats(grid: number[][]) {
-  let streak = 0, maxStreak = 0, bestDay = 0, currentStreak = 0
-  for (let w = 0; w < grid.length; w++) {
-    for (let d = 0; d < grid[w].length; d++) {
-      const v = grid[w][d]
-      if (v > bestDay) bestDay = v
-      if (v > 0) { currentStreak++; if (currentStreak > maxStreak) maxStreak = currentStreak }
-      else currentStreak = 0
+  for (let w = 0; w < weeks; w++) {
+    const weekStart = new Date(start)
+    weekStart.setDate(start.getDate() + w * 7)
+    const month = weekStart.getMonth()
+    if (month !== lastMonth) {
+      labels.push({ label: MONTH_NAMES[month], weekIndex: w })
+      lastMonth = month
     }
   }
-  streak = maxStreak
-  return { streak, bestDay }
+  return labels
 }
-
-const CONTRIB_STATS = getContribStats(CONTRIB_DATA)
 
 function ContributionLevel(count: number): 0 | 1 | 2 | 3 | 4 {
   if (count === 0) return 0
@@ -151,6 +131,113 @@ const LEVEL_COLORS = [
   'var(--contrib-3)',
   'var(--contrib-4)',
 ]
+
+/** Contribution card — uses real scraped data baked into the bundle. */
+function ContributionCard() {
+  const [contribData, setContribData] = useState<ContributionStats | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadContributions() {
+      // Always use the real hardcoded data — it was scraped directly from
+      // GitHub and is more reliable than the CORS-proxy live fetch.
+      const { generateFallbackContributions } = await import('@/lib/github')
+      setContribData(generateFallbackContributions())
+      setLoading(false)
+    }
+    loadContributions()
+  }, [])
+
+
+  if (loading || !contribData) {
+    return (
+      <Link to="/about" className="bento__card bento__card--contrib">
+        <CardHead Icon={GithubLogo} title="Contributions" desc="Activity on GitHub this year." />
+        <div className="bento__media bento__contrib" aria-hidden="true">
+          <span className="bento__contrib-badge">Loading...</span>
+        </div>
+      </Link>
+    )
+  }
+
+  const { grid, totalCommits, streak, bestDay } = contribData
+
+  return (
+    <Link to="/about" className="bento__card bento__card--contrib">
+      <CardHead Icon={GithubLogo} title="Contributions" desc="Activity on GitHub this year." />
+      <div className="bento__media bento__contrib" aria-hidden="true">
+        <span className="bento__contrib-badge">
+          {totalCommits.toLocaleString()} commits
+        </span>
+        <div className="bento__contrib-graph">
+          <svg
+            className="bento__contrib-svg"
+            viewBox={`0 0 ${WEEKS * 14 + 30} ${DAYS_PER_WEEK * 14 + 24}`}
+            preserveAspectRatio="xMidYMid meet"
+          >
+            {/* Month labels — dynamically positioned from real grid start date */}
+            {computeMonthLabels(WEEKS).map(({ label, weekIndex }) => (
+              <text
+                key={`${label}-${weekIndex}`}
+                x={30 + weekIndex * 14}
+                y={10}
+                className="bento__contrib-month"
+              >
+                {label}
+              </text>
+            ))}
+            {/* Day-of-week labels along the left (Mon / Wed / Fri) */}
+            {DAY_LABELS.map((d, i) => (
+              <text
+                key={d}
+                x={26}
+                y={24 + (i * 2 + 1) * 14 + 8}
+                className="bento__contrib-day"
+                textAnchor="end"
+              >
+                {d}
+              </text>
+            ))}
+            {/* Grid cells — each week is a column, each day is a row */}
+            {grid.map((week, w) =>
+              week.map((count, d) => (
+                <rect
+                  key={`${w}-${d}`}
+                  x={30 + w * 14}
+                  y={18 + d * 14}
+                  width={11}
+                  height={11}
+                  rx={2}
+                  fill={LEVEL_COLORS[ContributionLevel(count)]}
+                  className="bento__contrib-cell"
+                />
+              )),
+            )}
+          </svg>
+        </div>
+        <div className="bento__contrib-footer">
+          <span className="bento__contrib-stat">
+            Streak: <b>{streak}d</b>
+          </span>
+          <span className="bento__contrib-stat">
+            Best day: <b>{bestDay}</b>
+          </span>
+          <span className="bento__contrib-legend">
+            <span className="bento__contrib-legend-label">Less</span>
+            {[0, 1, 2, 3, 4].map(l => (
+              <span
+                key={l}
+                className="bento__contrib-legend-swatch"
+                style={{ background: LEVEL_COLORS[l] }}
+              />
+            ))}
+            <span className="bento__contrib-legend-label">More</span>
+          </span>
+        </div>
+      </div>
+    </Link>
+  )
+}
 
 // Three photos of you, fanned. Small copies are fine - the fan shows them under 100px.
 const PHOTOS = [aboutCard1, aboutCard2, aboutCard3]
@@ -274,84 +361,8 @@ export default function HomeBento() {
         </ul>
       </Link>
 
-      {/* Contributions: GitHub-style contribution graph, full width under title. */}
-      <Link to="/about" className="bento__card bento__card--contrib">
-        <CardHead Icon={GithubLogo} title="Contributions" desc="Activity on GitHub this year." />
-        <div className="bento__media bento__contrib" aria-hidden="true">
-          <span className="bento__contrib-badge">
-            {TOTAL_COMMITS.toLocaleString()} commits
-          </span>
-          <div className="bento__contrib-graph">
-            {/* Month labels */}
-            <svg
-              className="bento__contrib-svg"
-              viewBox={`0 0 ${WEEKS * 14 + 30} ${DAYS_PER_WEEK * 14 + 24}`}
-              preserveAspectRatio="xMidYMid meet"
-            >
-              {/* Month labels along the top */}
-              {MONTH_LABELS.map((m, i) => {
-                const x = 30 + Math.floor((i / 12) * WEEKS) * 14
-                return (
-                  <text
-                    key={m}
-                    x={x}
-                    y={10}
-                    className="bento__contrib-month"
-                  >
-                    {m}
-                  </text>
-                )
-              })}
-              {/* Day labels along the left */}
-              {DAY_LABELS.map((d, i) => (
-                <text
-                  key={d}
-                  x={12}
-                  y={24 + (i * 2 + 1) * 14 + 8}
-                  className="bento__contrib-day"
-                  textAnchor="end"
-                >
-                  {d}
-                </text>
-              ))}
-              {/* The grid cells */}
-              {CONTRIB_DATA.map((week, w) =>
-                week.map((count, d) => (
-                  <rect
-                    key={`${w}-${d}`}
-                    x={30 + w * 14}
-                    y={18 + d * 14}
-                    width={11}
-                    height={11}
-                    rx={2.5}
-                    fill={LEVEL_COLORS[ContributionLevel(count)]}
-                    className="bento__contrib-cell"
-                  />
-                )),
-              )}
-            </svg>
-          </div>
-          <div className="bento__contrib-footer">
-            <span className="bento__contrib-stat">
-              Streak: <b>{CONTRIB_STATS.streak}d</b>
-            </span>
-            <span className="bento__contrib-stat">
-              Best day: <b>{CONTRIB_STATS.bestDay}</b>
-            </span>
-            <span className="bento__contrib-legend">
-              <span className="bento__contrib-legend-label">Less</span>
-              {[0, 1, 2, 3, 4].map(l => (
-                <span
-                  key={l}
-                  className="bento__contrib-legend-swatch"
-                  style={{ background: LEVEL_COLORS[l] }}
-                />
-              ))}
-              <span className="bento__contrib-legend-label">More</span>
-            </span>
-          </div>
-        </div>
-      </Link>
+      {/* Contributions: GitHub-style contribution graph with real data. */}
+      <ContributionCard />
     </nav>
   )
 }

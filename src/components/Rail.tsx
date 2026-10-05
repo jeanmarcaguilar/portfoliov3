@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { NavLink } from 'react-router-dom'
 import { SealCheck } from '@/components/slab'
 import ThemeGlyph from './ThemeGlyph'
@@ -11,6 +11,7 @@ import {
 } from './RailIcons'
 import { getTheme, toggleTheme, type Theme } from '@/lib/theme'
 import { profile } from '@/data/profile'
+import { incrementVisits, formatVisits } from '@/lib/visits'
 
 /**
  * The profile rail: the fixed left column of the shell. It carries identity,
@@ -33,10 +34,20 @@ export const RAIL_LINKS = [
 
 export default function Rail() {
   const [theme, setThemeState] = useState<Theme>('light')
+  const [visits, setVisits] = useState<number>(0)
+  const hasIncrementedVisits = useRef(false)
 
   // The pre-paint script owns the real value; read it once mounted so the
   // button shows the icon for the action, not for the current state.
   useEffect(() => setThemeState(getTheme()), [])
+
+  // Load and increment visit count on mount (only once, even with StrictMode)
+  useEffect(() => {
+    if (!hasIncrementedVisits.current) {
+      hasIncrementedVisits.current = true
+      setVisits(incrementVisits())
+    }
+  }, [])
 
   return (
     <aside className="rail" aria-label="Profile and site navigation">
@@ -56,7 +67,7 @@ export default function Rail() {
         </h2>
         <p className="rail__handle">
           {profile.handle}
-          <span className="rail__visits">5,943 visits</span>
+          <span className="rail__visits">{formatVisits(visits)}</span>
         </p>
 
         <div className="rail__actions">

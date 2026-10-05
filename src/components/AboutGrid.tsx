@@ -137,14 +137,16 @@ export default function AboutGrid() {
                 </Link>
 
                 <a
-                  href="https://github.com/jeanmarcaguilar"
+                  href={`https://github.com/${profile.githubUsername}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="astats__card"
-                  aria-label="270+ GitHub Contributions"
+                  aria-label={`${profile.githubStats?.totalCommits ?? 233}+ GitHub Contributions`}
                 >
                   <div className="astats__card-top">
-                    <span className="astats__num">270+</span>
+                    <span className="astats__num">
+                      {profile.githubStats?.totalCommits ? `${profile.githubStats.totalCommits}+` : '233+'}
+                    </span>
                     <span className="astats__arrow" aria-hidden="true">
                       <ArrowUpRight size={11} weight="bold" />
                     </span>

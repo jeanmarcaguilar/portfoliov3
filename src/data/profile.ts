@@ -34,6 +34,14 @@ export type Profile = {
   verifiedLabel: string
   email: string
   location: string
+  /** GitHub username for fetching contribution data */
+  githubUsername: string
+  /** Manual GitHub contribution stats (more accurate than API) */
+  githubStats?: {
+    totalCommits: number
+    streak: number
+    bestDay: number
+  }
   /** Three short proof facts shown on phones under the Home lede. */
   stats: Stat[]
   displayName: { line1: string; line2: string }
@@ -54,6 +62,13 @@ export const profile: Profile = {
   verifiedLabel: 'PLACEHOLDER - what the tick means (e.g. a certification)',
   email: 'jeanmarcaguilar829@gmail.com',
   location: 'PLACEHOLDER - your city or timezone',
+  githubUsername: 'jeanmarcaguilar',
+  // Real contribution stats — scraped October 2026
+  githubStats: {
+    totalCommits: 233,
+    streak: 8,
+    bestDay: 20,
+  },
   // Pick any icon from https://phosphoricons.com and import it above.
   stats: [
     { value: '2025-2026', label: 'Graduated', Icon: Briefcase },
