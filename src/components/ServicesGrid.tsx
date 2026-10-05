@@ -57,9 +57,6 @@ type GearGroup = {
   items: GearItem[]
 }
 
-// TODO: replace each `url: SHOP_PLACEHOLDER` below with the real shop link.
-const SHOP_PLACEHOLDER = 'https://example.com'
-
 const GEAR: GearGroup[] = [
   {
     label: 'Desk Setup',

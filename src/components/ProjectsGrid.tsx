@@ -46,8 +46,6 @@ const FILTERS: { key: Cat | 'all'; label: string }[] = [
 /** Example tool marks, from public/icons. Swap for what you build with. */
 const GHL = '/icons/gohighlevel.png'
 const PLAY = '/icons/ai/googleplay.svg'
-const CHROME = '/icons/ai/googlechrome.svg'
-const EXPO = '/icons/ai/expo.svg'
 
 const WF_SHOTS = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png', '7.png', '8.png'].map(
   (f) => `/placeholders/${f}`,
