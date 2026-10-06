@@ -14,6 +14,11 @@ const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '🙏']
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+const isTmp = (id: unknown) => typeof id === 'string' && id.startsWith('tmp_')
+const byCreatedAt = (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+const sameReaction = (a: any, b: any) =>
+  a.message_id === b.message_id && a.device_id === b.device_id && a.emoji === b.emoji
+
 interface ReactionUser {
   deviceId: string
   name: string
@@ -149,6 +154,12 @@ export default function DevLoungeModal({
   const msgsFetchedRef = useRef(false)
   const baselineDoneRef = useRef(false)
   const seenMsgIds = useRef<Set<string>>(new Set())
+  // Live-sync bookkeeping
+  const fetchSeq = useRef(0) // newest fetch wins; older responses are dropped
+  const lastFetchAt = useRef(0)
+  const pendingWrites = useRef(0) // my own in-flight sends/edits/reactions
+  const writeEpoch = useRef(0) // bumps whenever a write starts or ends
+  const realtimeAliveRef = useRef(false) // true once a realtime event has actually arrived
 
   // Device & User State
   const [deviceId, setDeviceId] = useState<string>('')
@@ -350,6 +361,87 @@ export default function DevLoungeModal({
     setStories(formattedStories)
   }, [rawProfiles, deviceId])
 
+  /* ---------- live updates ---------- */
+
+  const applyMessageChange = (payload: any) => {
+    realtimeAliveRef.current = true
+    const { eventType, new: row, old } = payload
+    if (eventType === 'INSERT') {
+      setRawMessages((prev) => {
+        if (prev.some((m) => m.id === row.id)) return prev
+        // swap out my optimistic copy of this message, if there is one
+        const rest = prev.filter((m) => !(isTmp(m.id) && m.device_id === row.device_id && m.text === row.text))
+        return [...rest, row].sort(byCreatedAt)
+      })
+    } else if (eventType === 'UPDATE') {
+      setRawMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, ...row } : m)))
+    } else if (eventType === 'DELETE') {
+      setRawMessages((prev) => prev.filter((m) => m.id !== old?.id))
+    }
+  }
+
+  const applyReactionChange = (payload: any) => {
+    realtimeAliveRef.current = true
+    const { eventType, new: row, old } = payload
+    if (eventType === 'INSERT') {
+      setRawReactions((prev) => {
+        const i = prev.findIndex((r) => sameReaction(r, row))
+        if (i === -1) return [...prev, row]
+        if (prev[i].id === row.id) return prev
+        const next = [...prev]
+        next[i] = { ...prev[i], ...row } // my optimistic copy gets its real id
+        return next
+      })
+    } else if (eventType === 'UPDATE') {
+      setRawReactions((prev) => prev.map((r) => (r.id !== undefined && r.id === row.id ? { ...r, ...row } : r)))
+    } else if (eventType === 'DELETE') {
+      const hasId = old?.id !== undefined && old?.id !== null
+      const hasTuple = !!(old?.message_id && old?.device_id && old?.emoji)
+      if (!hasId && !hasTuple) {
+        fetchData() // payload too thin to know which row went away — just resync
+        return
+      }
+      setRawReactions((prev) =>
+        prev.filter((r) => !(hasId && r.id === old.id) && !(hasTuple && sameReaction(r, old))),
+      )
+    }
+  }
+
+  // While I'm writing, ignore stale fetches so optimistic UI doesn't flicker back
+  const beginWrite = () => {
+    pendingWrites.current += 1
+    writeEpoch.current += 1
+  }
+  const endWrite = () => {
+    pendingWrites.current -= 1
+    writeEpoch.current += 1
+  }
+
+  // Safety net: resync when the tab comes back / network returns, and poll as a fallback
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') fetchData()
+    }
+    window.addEventListener('focus', refresh)
+    window.addEventListener('online', refresh)
+    document.addEventListener('visibilitychange', refresh)
+
+    const poll = setInterval(() => {
+      if (!open || document.visibilityState !== 'visible') return
+      // Realtime delivering? then only a slow safety sync. Not delivering? poll quickly.
+      const every = realtimeAliveRef.current ? 30000 : 4000
+      if (Date.now() - lastFetchAt.current >= every) fetchData()
+    }, 2000)
+
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('online', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+      clearInterval(poll)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   // Initialize Device ID & Supabase Realtime Subscription
   useEffect(() => {
     let devId = localStorage.getItem('lounge_device_id')
@@ -382,17 +474,23 @@ export default function DevLoungeModal({
           })
         }
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_messages' }, () => {
-        fetchData()
-      })
+      // Messages (new messages, replies, edits) are applied straight from the event payload,
+      // so they show up instantly without another round-trip to the database.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_messages' }, applyMessageChange)
+      // Reactions too — counts and "who reacted" update live.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_reactions' }, applyReactionChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_profiles' }, () => {
+        realtimeAliveRef.current = true
         fetchData()
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_reactions' }, () => {
-        fetchData()
-      })
-      .subscribe((status: string) => {
+      .subscribe((status: string, err?: Error) => {
         channelReadyRef.current = status === 'SUBSCRIBED'
+        if (status === 'SUBSCRIBED') {
+          // (Re)connected — catch up on anything missed while offline / before subscribing
+          fetchData()
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('[lounge] realtime problem:', status, err)
+        }
       })
 
     channelRef.current = channel
@@ -425,32 +523,25 @@ export default function DevLoungeModal({
   }
 
   const fetchData = async () => {
-    const { data: msgData } = await supabase
-      .from('lounge_messages')
-      .select('*')
-      .order('created_at', { ascending: true })
+    const seq = ++fetchSeq.current
+    const epoch = writeEpoch.current
+    lastFetchAt.current = Date.now()
 
-    if (msgData) {
-      msgsFetchedRef.current = true
-      setRawMessages(msgData)
-    }
+    const [msgRes, profileRes, memberRes, reactionRes]: any[] = await Promise.all([
+      supabase.from('lounge_messages').select('*').order('created_at', { ascending: true }),
+      supabase.from('lounge_profiles').select('*').order('created_at', { ascending: false }).limit(10),
+      // Full member list (the stories rail only keeps the 10 newest) — used for @mentions & reaction names
+      supabase.from('lounge_profiles').select('device_id, name, avatar_salt').order('name', { ascending: true }),
+      supabase.from('lounge_reactions').select('*'),
+    ])
 
-    const { data: profileData } = await supabase
-      .from('lounge_profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(10)
+    // A newer fetch has started — this response is stale
+    if (seq !== fetchSeq.current) return
 
-    if (profileData) setRawProfiles(profileData)
-
-    // Full member list (the stories rail only keeps the 10 newest) — used for @mentions & reaction names
-    const { data: memberData } = await supabase
-      .from('lounge_profiles')
-      .select('device_id, name, avatar_salt')
-      .order('name', { ascending: true })
-    if (memberData) {
+    if (profileRes.data) setRawProfiles(profileRes.data)
+    if (memberRes.data) {
       setAllMembers(
-        memberData.map((p: any) => ({
+        memberRes.data.map((p: any) => ({
           deviceId: p.device_id,
           name: p.name,
           avatarSeed: `${p.name}-${p.avatar_salt}`,
@@ -458,8 +549,16 @@ export default function DevLoungeModal({
       )
     }
 
-    const { data: reactionData } = await supabase.from('lounge_reactions').select('*')
-    if (reactionData) setRawReactions(reactionData)
+    // If I wrote something while this was in flight, the result may predate my write.
+    // Skip it; a fresh fetch runs right after every write.
+    if (pendingWrites.current > 0 || epoch !== writeEpoch.current) return
+
+    if (msgRes.data) {
+      msgsFetchedRef.current = true
+      setRawMessages(msgRes.data)
+    }
+    if (reactionRes.data) setRawReactions(reactionRes.data)
+    if (msgRes.error || reactionRes.error) console.warn('[lounge] fetch error', msgRes.error ?? reactionRes.error)
   }
 
   const handleRegisterUser = async (e: FormEvent) => {
@@ -740,11 +839,13 @@ export default function DevLoungeModal({
       prev.map((m) => (m.id === id ? { ...m, text: newText, edited_at: new Date().toISOString() } : m)),
     )
 
+    beginWrite()
     const { error } = await supabase
       .from('lounge_messages')
       .update({ text: newText, edited_at: new Date().toISOString() })
       .eq('id', id)
       .eq('device_id', deviceId)
+    endWrite()
 
     if (error) {
       console.error('Error editing message:', error.message)
@@ -760,14 +861,16 @@ export default function DevLoungeModal({
       (r) => r.message_id === messageId && r.device_id === deviceId && r.emoji === emoji,
     )
 
+    beginWrite()
     if (existing) {
-      setRawReactions((prev) => prev.filter((r) => r !== existing))
-      await supabase
+      setRawReactions((prev) => prev.filter((r) => !sameReaction(r, existing)))
+      const { error } = await supabase
         .from('lounge_reactions')
         .delete()
         .eq('message_id', messageId)
         .eq('device_id', deviceId)
         .eq('emoji', emoji)
+      if (error) showToast(`Couldn't remove reaction: ${error.message}`)
     } else {
       setRawReactions((prev) => [...prev, { message_id: messageId, device_id: deviceId, emoji }])
       const { error } = await supabase
@@ -778,6 +881,7 @@ export default function DevLoungeModal({
         showToast(`Couldn't add reaction: ${error.message}`)
       }
     }
+    endWrite()
     fetchData()
   }
 
@@ -837,7 +941,17 @@ export default function DevLoungeModal({
     }
     if (replyId) row.reply_to = replyId
 
-    const { error } = await supabase.from('lounge_messages').insert([row])
+    beginWrite()
+    const { data: saved, error } = await supabase.from('lounge_messages').insert([row]).select().single()
+    endWrite()
+
+    if (!error && saved) {
+      // Swap the optimistic message for the real saved row (the realtime echo is de-duplicated by id)
+      setRawMessages((prev) => {
+        const rest = prev.filter((m) => m.id !== tempId)
+        return rest.some((m) => m.id === saved.id) ? rest : [...rest, saved].sort(byCreatedAt)
+      })
+    }
 
     if (error) {
       console.error('Error sending message:', error.message)
