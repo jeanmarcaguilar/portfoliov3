@@ -12,18 +12,9 @@ import {
 import { getTheme, toggleTheme, type Theme } from '@/lib/theme'
 import { profile } from '@/data/profile'
 import { incrementVisits, formatVisits } from '@/lib/visits'
+import WeatherRailButton from './WeatherRailButton'
+import { supabase } from '@/lib/supabase'
 
-/**
- * The profile rail: the fixed left column of the shell. It carries identity,
- * the theme switch and the section index, and it is the site's only navigation
- * surface from 1100px up - the floating NavBar pill hides there and takes over
- * again below it.
- *
- * The links are ROUTES, not anchors. Home is a fixed non-scrolling viewport, so
- * there is nothing for a scrollspy to spy on; the panel to the right swaps
- * instead. `NavLink` owns the active state, which is why there is no
- * IntersectionObserver here.
- */
 export const RAIL_LINKS = [
   { label: 'Home', to: '/', Icon: HomeIcon },
   { label: 'About', to: '/about', Icon: UserIcon },
@@ -37,11 +28,11 @@ export default function Rail() {
   const [visits, setVisits] = useState<number>(0)
   const hasIncrementedVisits = useRef(false)
 
-  // The pre-paint script owns the real value; read it once mounted so the
-  // button shows the icon for the action, not for the current state.
+  // Live note from DB — reflects whatever is saved in DevLoungeModal
+  const [currentNote, setCurrentNote] = useState<string>('')
+
   useEffect(() => setThemeState(getTheme()), [])
 
-  // Load and increment visit count on mount (only once, even with StrictMode)
   useEffect(() => {
     if (!hasIncrementedVisits.current) {
       hasIncrementedVisits.current = true
@@ -49,17 +40,65 @@ export default function Rail() {
     }
   }, [])
 
+  // Fetch note from DB and subscribe to real-time changes
+  useEffect(() => {
+    const devId = localStorage.getItem('lounge_device_id')
+    if (!devId) return
+
+    // Initial fetch
+    const fetchNote = async () => {
+      const { data } = await supabase
+        .from('lounge_profiles')
+        .select('note')
+        .eq('device_id', devId)
+        .maybeSingle()
+      if (data) setCurrentNote(data.note || '')
+    }
+    fetchNote()
+
+    // Real-time subscription — fallback sync via Supabase
+    const channel = supabase
+      .channel('rail-note-sync')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'lounge_profiles' },
+        async () => { fetchNote() },
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
+  // Instant update — fired directly by DevLoungeModal on post/remove (no refresh needed)
+  useEffect(() => {
+    const handleNoteUpdate = (e: Event) => {
+      setCurrentNote((e as CustomEvent<string>).detail)
+    }
+    window.addEventListener('rail:note-updated', handleNoteUpdate)
+    return () => window.removeEventListener('rail:note-updated', handleNoteUpdate)
+  }, [])
+
   return (
     <aside className="rail" aria-label="Profile and site navigation">
       <div className="rail__inner">
-        <span className="rail__avatar">
-          <img
-            src={profile.avatarSrc}
-            alt={profile.name}
-            width={120}
-            height={120}
-          />
-        </span>
+        {/* Avatar container wrapper with the note bubble */}
+        <div className="rail__avatar-wrapper">
+          <span className="rail__avatar">
+            <img
+              src={profile.avatarSrc}
+              alt={profile.name}
+              width={120}
+              height={120}
+            />
+          </span>
+
+          {currentNote && (
+            <div className="rail__note-bubble" role="status">
+              <span className="rail__note-author">{profile.name}</span>
+              <p className="rail__note-text">{currentNote}</p>
+            </div>
+          )}
+        </div>
 
         <h2 className="rail__name">
           {profile.name}
@@ -81,8 +120,6 @@ export default function Rail() {
                   rel="noopener noreferrer"
                   aria-label={label}
                 >
-                  {/* Single-colour silhouettes, tinted by currentColor through a
-                    CSS mask - same technique as the hero's social row. */}
                   <span
                     className="rail__social-icon"
                     style={{ ['--icon-url' as string]: `url('${iconPath}')` }}
@@ -101,6 +138,8 @@ export default function Rail() {
           >
             <ThemeGlyph theme={theme} size={21} />
           </button>
+
+          <WeatherRailButton />
         </div>
 
         <nav className="rail__nav" aria-label="Sections">

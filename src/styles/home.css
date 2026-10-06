@@ -63,14 +63,21 @@
   border-radius: var(--radius-pill);
   background: var(--navy);
   color: var(--cream);
+  font-family: inherit;
   font-size: 14px;
   font-weight: 600;
+  border: none;
+  cursor: pointer;
   box-shadow: var(--shadow-btn);
   transition: transform var(--dur-med) var(--ease-spring),
-              background var(--dur-fast) var(--ease-out);
+              background var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
 }
 .home__cta svg { color: var(--orange); }
-.home__cta:hover { transform: translateY(-2px); }
+.home__cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -10px rgba(255, 122, 26, 0.45);
+}
 
 /* One line, from 1400px up.
    The sentence is 130 characters. Measured against the panel it needs roughly

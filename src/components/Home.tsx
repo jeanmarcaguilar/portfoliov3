@@ -1,9 +1,9 @@
-import { Link } from 'react-router-dom'
-import { ArrowUpRight } from '@/components/slab'
+import { Coffee } from '@/components/slab'
 import { profile } from '@/data/profile'
 import ToolsMarquee from './ToolsMarquee'
 import HomeBento from './HomeBento'
 import { HomeProfile, HomeStats, HomeExplore } from './HomeMobile'
+import { openDevLounge } from './DevLoungeModal'
 import { useScrollReveal } from '@/hooks/useScrollReveal'
 import { useIsPhone } from '@/hooks/useMediaQuery'
 
@@ -44,12 +44,16 @@ export default function Home() {
             </span>
           </h1>
 
-          {!phone && (
-            <Link className="home__cta" to="/contact">
-              Get in touch
-              <ArrowUpRight size={16} weight="bold" aria-hidden="true" />
-            </Link>
-          )}
+          <button
+            type="button"
+            className="home__cta"
+            onClick={(e) => openDevLounge(e.currentTarget)}
+            aria-haspopup="dialog"
+            aria-label="Open Dev Lounge"
+          >
+            <Coffee size={17} weight="fill" aria-hidden="true" />
+            <span>Dev Lounge</span>
+          </button>
         </div>
 
         <p className="home__lede">{hero.body}</p>

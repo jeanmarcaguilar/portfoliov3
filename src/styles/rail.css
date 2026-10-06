@@ -92,7 +92,8 @@
   .rail__actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    gap: 8px;
     margin-top: 8px;
   }
 
@@ -119,7 +120,7 @@
   .rail__socials {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     list-style: none;
   }
   .rail__social {
@@ -263,4 +264,58 @@
   /* The rail IS the navigation up here, so the floating pill steps aside and
      the page keeps exactly one navigation surface. */
   .nav { display: none; }
+/* ---------- Avatar Note Bubble ---------- */
+  .rail__avatar-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .rail__note-bubble {
+    position: absolute;
+    top: 0px;
+    right: -30px; /* Shifted further right */
+    background: var(--white);
+    color: var(--navy);
+    border: 1px solid var(--line);
+    padding: 7px 10px;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(6, 12, 26, 0.1);
+    width: 135px; /* Fixed compact width to prevent overflow */
+    z-index: 10;
+  }
+
+  .rail__note-author {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rail__note-text {
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin: 0;
+    line-height: 1.2;
+    word-break: break-word;
+  }
+
+  /* Pointer arrow pointing left towards the avatar */
+  .rail__note-bubble::before {
+    content: '';
+    position: absolute;
+    bottom: -9px;
+    left: 16px;
+    transform: none;
+    border-width: 9px 7px 0 7px;
+    border-style: solid;
+    border-color: var(--white) transparent transparent transparent;
+    display: block;
+    width: 0;
+  }
 }

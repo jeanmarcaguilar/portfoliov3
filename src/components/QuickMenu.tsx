@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState, type FocusEvent } from 'react'
-import { PersonArmsSpread, CaretRight, DotsThree } from '@/components/slab'
+import { PersonArmsSpread, CaretRight, DotsThree, CloudSun } from '@/components/slab'
 import ThemeGlyph from './ThemeGlyph'
 import { A11Y_OPEN_EVENT } from './AccessMenu'
+import { WEATHER_OPEN_EVENT } from './WeatherModal'
 import { getTheme, toggleTheme, type Theme } from '@/lib/theme'
 import { useDismiss, type DismissReason } from '@/hooks/useDismiss'
 
@@ -47,6 +48,11 @@ export default function QuickMenu({ className = '' }: { className?: string }) {
     window.dispatchEvent(new CustomEvent(A11Y_OPEN_EVENT, { detail: buttonRef.current }))
   }
 
+  const openWeather = () => {
+    setOpen(false)
+    window.dispatchEvent(new CustomEvent(WEATHER_OPEN_EVENT, { detail: buttonRef.current }))
+  }
+
   return (
     <div className={`qmenu ${className}`.trim()} ref={rootRef} onBlur={onBlur}>
       <button
@@ -56,7 +62,7 @@ export default function QuickMenu({ className = '' }: { className?: string }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label="Theme and accessibility"
+        aria-label="Theme, weather, and accessibility"
       >
         <DotsThree size={22} weight="bold" aria-hidden="true" />
       </button>
@@ -72,6 +78,12 @@ export default function QuickMenu({ className = '' }: { className?: string }) {
           <ThemeGlyph theme={theme} size={19} />
           <span className="qmenu__label">Dark theme</span>
           <span className="qmenu__switch" aria-hidden="true" />
+        </button>
+        <span className="qmenu__sep" aria-hidden="true" />
+        <button type="button" className="qmenu__row" aria-haspopup="dialog" onClick={openWeather}>
+          <CloudSun size={19} weight="duotone" aria-hidden="true" />
+          <span className="qmenu__label">Weather forecast</span>
+          <CaretRight size={15} weight="bold" aria-hidden="true" className="qmenu__caret" />
         </button>
         <span className="qmenu__sep" aria-hidden="true" />
         <button type="button" className="qmenu__row" aria-haspopup="dialog" onClick={openAccessibility}>
