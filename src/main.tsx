@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import App from './App'
 import Home from '@/components/Home'
 import NotFound from '@/components/NotFound'
+import ChatBot from '@/components/ChatBot'
 import { restorePerfTier } from '@/lib/perf'
 import { restorePrefs } from '@/lib/a11y'
 
@@ -53,6 +54,8 @@ import './styles/apple.css'
 import './styles/mobile-pass.css'
 // Page-to-page transition (fade/slide out, then in).
 import './styles/page-transition.css'
+// Floating chatbot launcher + panel (shows on every page).
+import './styles/chatbot.css'
 // Last: the perf tiers only ever turn things OFF, so they must win.
 import './styles/perf.css'
 
@@ -87,6 +90,8 @@ createRoot(container).render(
         <Route path="/thank-you" element={<Suspense fallback={null}><ThankYou /></Suspense>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      {/* Outside <Routes> so the chatbot shows on every page, shell or not. */}
+      <ChatBot />
     </BrowserRouter>
   </StrictMode>,
 )
