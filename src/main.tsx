@@ -51,6 +51,8 @@ import './styles/dev-lounge.css'
 import './styles/apple.css'
 // Mobile motion + component pass on top of it (phone shell only).
 import './styles/mobile-pass.css'
+// Page-to-page transition (fade/slide out, then in).
+import './styles/page-transition.css'
 // Last: the perf tiers only ever turn things OFF, so they must win.
 import './styles/perf.css'
 

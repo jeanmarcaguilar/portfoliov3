@@ -49,15 +49,18 @@
       0 1px 2px rgba(6, 12, 26, 0.06),
       0 18px 40px -18px rgba(11, 30, 63, 0.4);
   }
+
   [data-theme='dark'] .tabbar {
     box-shadow:
       inset 0 0 0 1px var(--line-strong),
       inset 0 1px 0 rgba(255, 255, 255, 0.1),
       0 18px 40px -18px rgba(0, 0, 0, 0.8);
   }
+
   .tabbar__tab {
     position: relative;
-    z-index: 1; /* above the pill */
+    z-index: 1;
+    /* above the pill */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -71,11 +74,24 @@
     letter-spacing: 0.02em;
     transition: color var(--dur-fast) var(--ease-out), transform 100ms var(--ease-out);
   }
-  .tabbar__tab:active { transform: scale(0.94); }
-  .tabbar__tab[aria-current='page'] { color: var(--navy); }
+
+  .tabbar__tab:active {
+    transform: scale(0.94);
+  }
+
+  .tabbar__tab[aria-current='page'] {
+    color: var(--navy);
+  }
+
   /* Not the raised button: its envelope keeps its own ink on the orange. */
-  .tabbar__tab[aria-current='page']:not(.tabbar__tab--primary) svg { color: var(--orange-ink); }
-  .tabbar__tab:focus-visible { outline: 2px solid var(--orange); outline-offset: -6px; }
+  .tabbar__tab[aria-current='page']:not(.tabbar__tab--primary) svg {
+    color: var(--orange-ink);
+  }
+
+  .tabbar__tab:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: -6px;
+  }
 
   /* The pill: one mark that travels between tabs (TabBar.tsx places and
      animates it). The raised Contact button is its own mark, so the pill
@@ -91,7 +107,10 @@
     pointer-events: none;
     transition: opacity 180ms var(--ease-out);
   }
-  .tabbar__pill[data-off] { opacity: 0; }
+
+  .tabbar__pill[data-off] {
+    opacity: 0;
+  }
 
   .tabbar__fab {
     display: grid;
@@ -108,8 +127,15 @@
       0 10px 24px -10px rgba(255, 122, 26, 0.55);
     transition: transform var(--dur-med) var(--ease-out), background var(--dur-fast) var(--ease-out);
   }
-  .tabbar__tab--primary[aria-current='page'] .tabbar__fab { background: var(--orange-hover); }
-  .tabbar__tab--primary:active .tabbar__fab { transform: scale(0.92); transition-duration: 100ms; }
+
+  .tabbar__tab--primary[aria-current='page'] .tabbar__fab {
+    background: var(--orange-hover);
+  }
+
+  .tabbar__tab--primary:active .tabbar__fab {
+    transform: scale(0.92);
+    transition-duration: 100ms;
+  }
 
   /* Reading down a page the bar slides away; scrolling up brings it back
      (TabBar.tsx sets the data attributes). The spring takes over only once the
@@ -119,18 +145,29 @@
     transition: transform 470ms var(--spring-ui), opacity 200ms var(--ease-out);
     transition-delay: 0s;
   }
-  .tabbar[data-hidden] { transform: translateY(calc(100% + 40px + env(safe-area-inset-bottom, 0px))); }
-  .tabbar[data-hidden]:focus-within { transform: none; }
+
+  .tabbar[data-hidden] {
+    transform: translateY(calc(100% + 40px + env(safe-area-inset-bottom, 0px)));
+  }
+
+  .tabbar[data-hidden]:focus-within {
+    transform: none;
+  }
 
   /* ---------- QuickMenu ----------
      One button, a panel that grows out of it from the top right. */
-  .qmenu { position: relative; flex: none; }
+  .qmenu {
+    position: relative;
+    flex: none;
+  }
+
   .qmenu--float {
     position: fixed;
     top: var(--qmenu-top);
     right: 16px;
     z-index: 50;
   }
+
   .qmenu__button {
     display: grid;
     place-items: center;
@@ -148,8 +185,17 @@
     cursor: pointer;
     transition: transform var(--dur-med) var(--ease-out);
   }
-  .qmenu__button:active { transform: scale(0.92); transition-duration: 100ms; }
-  .qmenu__button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+  .qmenu__button:active {
+    transform: scale(0.92);
+    transition-duration: 100ms;
+  }
+
+  .qmenu__button:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+  }
+
   /* Visibility waits out the fade on close, so the panel leaves the
      accessibility tree only once it has left the screen. */
   .qmenu__panel {
@@ -173,6 +219,7 @@
       opacity 150ms var(--ease-out),
       visibility 0s linear 150ms;
   }
+
   .qmenu__panel.is-open {
     transform: none;
     opacity: 1;
@@ -182,8 +229,10 @@
       opacity 200ms var(--ease-out),
       visibility 0s;
   }
+
   .qmenu__row {
-    --tg-bg: var(--paper); /* ThemeGlyph's cutter matches the panel */
+    --tg-bg: var(--paper);
+    /* ThemeGlyph's cutter matches the panel */
     display: flex;
     align-items: center;
     gap: 10px;
@@ -201,12 +250,35 @@
     cursor: pointer;
     transition: background 100ms var(--ease-out);
   }
-  .qmenu__row:active { background: var(--tint-strong); }
-  .qmenu__row:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
-  .qmenu__row svg { flex: none; }
-  .qmenu__label { flex: 1; }
-  .qmenu__caret { color: var(--muted); }
-  .qmenu__sep { display: block; height: 1px; margin: 2px 10px; background: var(--line); }
+
+  .qmenu__row:active {
+    background: var(--tint-strong);
+  }
+
+  .qmenu__row:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: -2px;
+  }
+
+  .qmenu__row svg {
+    flex: none;
+  }
+
+  .qmenu__label {
+    flex: 1;
+  }
+
+  .qmenu__caret {
+    color: var(--muted);
+  }
+
+  .qmenu__sep {
+    display: block;
+    height: 1px;
+    margin: 2px 10px;
+    background: var(--line);
+  }
+
   .qmenu__switch {
     position: relative;
     flex: none;
@@ -216,6 +288,7 @@
     background: var(--tint-strong);
     transition: background 200ms var(--ease-out);
   }
+
   .qmenu__switch::after {
     content: '';
     position: absolute;
@@ -224,20 +297,35 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #fff; /* a switch knob is white in both themes */
+    background: #fff;
+    /* a switch knob is white in both themes */
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     transition: transform 240ms var(--ease-out);
   }
-  .qmenu__row[aria-checked='true'] .qmenu__switch { background: var(--orange); }
-  .qmenu__row[aria-checked='true'] .qmenu__switch::after { transform: translateX(14px); }
+
+  .qmenu__row[aria-checked='true'] .qmenu__switch {
+    background: var(--orange);
+  }
+
+  .qmenu__row[aria-checked='true'] .qmenu__switch::after {
+    transform: translateX(14px);
+  }
 
   /* ---------- Page frame ----------
      Just the notch at the top; room at the bottom for the bar plus a thumb. */
   .home,
-  .pgrid { padding-top: calc(22px + env(safe-area-inset-top, 0px)); }
-  .shell__panel { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .pgrid {
+    padding-top: calc(22px + env(safe-area-inset-top, 0px));
+  }
+
+  .shell__panel {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
   /* Inner pages float the QuickMenu top-right; keep the head clear of it. */
-  .pgrid__head { padding-right: 56px; }
+  .pgrid__head {
+    padding-right: 56px;
+  }
 
   /* ---------- Home: profile header ---------- */
   .hprofile {
@@ -246,6 +334,7 @@
     gap: 12px;
     margin-bottom: 22px;
   }
+
   .hprofile__avatar {
     width: 56px;
     height: 56px;
@@ -255,7 +344,13 @@
     background: var(--white);
     box-shadow: inset 0 0 0 1px var(--line), 0 6px 16px -8px rgba(11, 30, 63, 0.35);
   }
-  .hprofile__who { display: flex; flex-direction: column; min-width: 0; }
+
+  .hprofile__who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
   .hprofile__name {
     display: inline-flex;
     align-items: center;
@@ -265,7 +360,11 @@
     line-height: 1.1;
     color: var(--navy);
   }
-  .hprofile__verified { color: var(--verified); }
+
+  .hprofile__verified {
+    color: var(--verified);
+  }
+
   /* Allowed to wrap: on a narrow phone the handle takes two lines rather
      than cutting the role short. */
   .hprofile__handle {
@@ -274,10 +373,19 @@
     line-height: 1.35;
     color: var(--muted);
   }
-  .hprofile__menu { margin-left: auto; align-self: flex-start; }
 
-  .home__head { gap: 12px; }
-  .home__headline { flex-direction: column; }
+  .hprofile__menu {
+    margin-left: auto;
+    align-self: flex-start;
+  }
+
+  .home__head {
+    gap: 12px;
+  }
+
+  .home__headline {
+    flex-direction: column;
+  }
 
   /* ---------- Home: stats, a compact glance widget ----------
      One material with a bright top edge. Each fact is a stack - its orange
@@ -297,12 +405,14 @@
       0 1px 1.5px rgba(6, 12, 26, 0.05),
       0 14px 30px -22px rgba(11, 30, 63, 0.5);
   }
+
   [data-theme='dark'] .hstats {
     box-shadow:
       inset 0 0 0 1px var(--line-strong),
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
       0 14px 30px -22px rgba(0, 0, 0, 0.85);
   }
+
   .hstats li {
     position: relative;
     display: flex;
@@ -313,7 +423,8 @@
     padding: 0 6px;
     text-align: center;
   }
-  .hstats li + li::before {
+
+  .hstats li+li::before {
     content: '';
     position: absolute;
     top: 18%;
@@ -322,7 +433,13 @@
     width: 1px;
     background: var(--line);
   }
-  .hstats__icon { flex: none; margin-bottom: 5px; color: var(--orange); }
+
+  .hstats__icon {
+    flex: none;
+    margin-bottom: 5px;
+    color: var(--orange);
+  }
+
   .hstats__value {
     font-size: 18px;
     font-weight: 700;
@@ -331,6 +448,7 @@
     font-variant-numeric: tabular-nums;
     color: var(--navy);
   }
+
   .hstats__label {
     margin-top: 2px;
     font-size: 11.5px;
@@ -342,7 +460,10 @@
   /* ---------- Home: section heads ----------
      A head that links carries a chevron on the title itself; one that does
      not is only a title. */
-  .hsec { margin: 8px 0 -4px; }
+  .hsec {
+    margin: 8px 0 -4px;
+  }
+
   .hsec__title {
     font-size: 20px;
     font-weight: 700;
@@ -350,6 +471,7 @@
     line-height: 1.2;
     color: var(--navy);
   }
+
   .hsec__link {
     display: inline-flex;
     align-items: center;
@@ -357,8 +479,14 @@
     color: inherit;
     transition: opacity 100ms var(--ease-out);
   }
-  .hsec__link svg { color: var(--muted); }
-  .hsec__link:active { opacity: 0.55; }
+
+  .hsec__link svg {
+    color: var(--muted);
+  }
+
+  .hsec__link:active {
+    opacity: 0.55;
+  }
 
   /* ---------- Home: explore row, shelf cards ----------
      The media is the card; the words sit on the page under it. The whole
@@ -376,8 +504,16 @@
     scroll-padding-inline: var(--panel-x);
     scrollbar-width: none;
   }
-  .htiles::-webkit-scrollbar { display: none; }
-  .htiles > li { flex: 0 0 auto; scroll-snap-align: start; }
+
+  .htiles::-webkit-scrollbar {
+    display: none;
+  }
+
+  .htiles>li {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
   .htile {
     display: flex;
     flex-direction: column;
@@ -385,7 +521,12 @@
     color: var(--navy);
     transition: transform var(--dur-med) var(--ease-out);
   }
-  .htile:active { transform: scale(0.97); transition-duration: 100ms; }
+
+  .htile:active {
+    transform: scale(0.97);
+    transition-duration: 100ms;
+  }
+
   .htile__media {
     position: relative;
     display: block;
@@ -395,6 +536,7 @@
     background: var(--white);
     box-shadow: 0 1px 1.5px rgba(6, 12, 26, 0.04), 0 10px 24px -18px rgba(11, 30, 63, 0.45);
   }
+
   /* The hairline sits over the image, so a white screenshot still has an edge. */
   .htile__media::after {
     content: '';
@@ -404,16 +546,34 @@
     box-shadow: inset 0 0 0 1px var(--line);
     pointer-events: none;
   }
-  .htile__img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+
+  .htile__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+
   .htile__glyph {
     display: grid;
     place-items: center;
     color: var(--orange);
     background: linear-gradient(160deg, color-mix(in srgb, var(--orange) 13%, transparent), var(--white) 62%);
   }
+
   /* Showcase: the cool blue of the Home glass plate instead of orange. */
-  .htile--accent .htile__glyph { background: linear-gradient(160deg, rgba(24, 56, 140, 0.13), var(--white) 62%); }
-  .htile__body { display: flex; flex-direction: column; gap: 3px; padding: 10px 2px 0; }
+  .htile--accent .htile__glyph {
+    background: linear-gradient(160deg, rgba(24, 56, 140, 0.13), var(--white) 62%);
+  }
+
+  .htile__body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 2px 0;
+  }
+
   .htile__n {
     font-size: 10.5px;
     font-weight: 600;
@@ -421,8 +581,20 @@
     text-transform: uppercase;
     color: var(--orange-ink);
   }
-  .htile__title { font-size: 15px; font-weight: 600; line-height: 1.2; letter-spacing: -0.014em; }
-  .htile__desc { font-size: 12.5px; line-height: 1.45; letter-spacing: 0.004em; color: var(--muted); }
+
+  .htile__title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.014em;
+  }
+
+  .htile__desc {
+    font-size: 12.5px;
+    line-height: 1.45;
+    letter-spacing: 0.004em;
+    color: var(--muted);
+  }
 
   /* ---------- Home: client proof, a video stage ---------- */
   .hproof {
@@ -430,7 +602,12 @@
     color: var(--navy);
     transition: transform var(--dur-med) var(--ease-out);
   }
-  .hproof:active { transform: scale(0.98); transition-duration: 100ms; }
+
+  .hproof:active {
+    transform: scale(0.98);
+    transition-duration: 100ms;
+  }
+
   .hproof__stage {
     position: relative;
     display: block;
@@ -440,7 +617,14 @@
     background: var(--navy-ink);
     box-shadow: 0 1px 1.5px rgba(6, 12, 26, 0.06), 0 18px 40px -24px rgba(6, 12, 26, 0.55);
   }
-  .hproof__stage img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+  .hproof__stage img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
   /* Light glass over a photograph in both themes, so its colours are pinned
      rather than themed. */
   .hproof__play {
@@ -457,7 +641,12 @@
     color: #0B1E3F;
     box-shadow: 0 8px 20px -8px rgba(6, 12, 26, 0.5);
   }
-  .hproof__play svg { margin-left: 3px; } /* a play triangle's optical centre */
+
+  .hproof__play svg {
+    margin-left: 3px;
+  }
+
+  /* a play triangle's optical centre */
   .hproof__dur {
     position: absolute;
     top: 12px;
@@ -470,9 +659,26 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
-  .hproof__copy { display: flex; flex-direction: column; gap: 3px; padding: 12px 2px 0; }
-  .hproof__title { font-size: 16px; font-weight: 700; line-height: 1.3; letter-spacing: -0.012em; }
-  .hproof__meta { font-size: 12px; letter-spacing: 0.004em; color: var(--muted); }
+
+  .hproof__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 12px 2px 0;
+  }
+
+  .hproof__title {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.012em;
+  }
+
+  .hproof__meta {
+    font-size: 12px;
+    letter-spacing: 0.004em;
+    color: var(--muted);
+  }
 
   /* ---------- Projects: filter + two-column grid ---------- */
   .pfilter {
@@ -483,6 +689,7 @@
     border-radius: var(--radius-pill);
     background: var(--tint);
   }
+
   .pfilter__btn {
     flex: 1;
     min-height: 36px;
@@ -496,59 +703,123 @@
     cursor: pointer;
     transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
   }
+
   .pfilter__btn[aria-pressed='true'] {
     background: var(--white);
     color: var(--navy);
     box-shadow: 0 2px 8px -2px rgba(11, 30, 63, 0.25);
   }
-  [data-theme='dark'] .pfilter__btn[aria-pressed='true'] { background: var(--paper); }
-  .pgrid__hint { display: none; }
-  .bento--projects { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+  [data-theme='dark'] .pfilter__btn[aria-pressed='true'] {
+    background: var(--paper);
+  }
+
+  .pgrid__hint {
+    display: none;
+  }
+
+  .bento--projects {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
   .bento--projects .bento__card--wide,
-  .bento--projects .bento__card[data-id='plan'] { grid-column: span 2; }
-  .bento--projects .bento__stack { grid-column: span 2; }
-  .bento--projects .bento__card { padding: 12px; }
-  .bento--projects .bento__card--wide .bento__media { height: 150px; }
-  .bento--projects .bento__card:not(.bento__card--wide) .bento__media { max-height: 118px; }
+  .bento--projects .bento__card[data-id='plan'] {
+    grid-column: span 2;
+  }
+
+  .bento--projects .bento__stack {
+    grid-column: span 2;
+  }
+
+  .bento--projects .bento__card {
+    padding: 12px;
+  }
+
+  .bento--projects .bento__card--wide .bento__media {
+    height: 150px;
+  }
+
+  .bento--projects .bento__card:not(.bento__card--wide) .bento__media {
+    max-height: 118px;
+  }
 
   /* ---------- Contact: the form first, submit within reach ---------- */
-  .cgrid__glass { flex-direction: column; }
-  .cgrid__panel { order: -1; }
+  .cgrid__glass {
+    flex-direction: column;
+  }
+
+  .cgrid__panel {
+    order: -1;
+  }
 
   /* ---------- Preferences ---------- */
   @media (prefers-reduced-motion: reduce) {
+
     .tabbar__tab:active,
     .tabbar__tab--primary:active .tabbar__fab,
     .qmenu__button:active,
     .htile:active,
-    .hproof:active { transform: none; }
-    .tabbar__tab:active { background: var(--tint); }
+    .hproof:active {
+      transform: none;
+    }
+
+    .tabbar__tab:active {
+      background: var(--tint);
+    }
+
     .htile:active .htile__media,
-    .hproof:active .hproof__stage { opacity: 0.85; }
+    .hproof:active .hproof__stage {
+      opacity: 0.85;
+    }
+
     .qmenu__panel,
-    .qmenu__panel.is-open { transform: none; }
+    .qmenu__panel.is-open {
+      transform: none;
+    }
   }
+
   @media (prefers-contrast: more) {
+
     .tabbar,
     .hstats,
     .qmenu__button,
-    .qmenu__panel { box-shadow: inset 0 0 0 1px var(--line-strong); }
-    .htile__media::after { box-shadow: inset 0 0 0 1px var(--line-strong); }
+    .qmenu__panel {
+      box-shadow: inset 0 0 0 1px var(--line-strong);
+    }
+
+    .htile__media::after {
+      box-shadow: inset 0 0 0 1px var(--line-strong);
+    }
   }
 }
 
 /* Tablets: the shelf grows with the screen. */
 @media (min-width: 640px) and (max-width: 1099px) {
-  .htile { width: min(260px, 40vw); }
+  .htile {
+    width: min(260px, 40vw);
+  }
 }
 
 @media (max-width: 639px) {
-  .bento--projects .bento__title { font-size: 14px; }
-  .bento--projects .bento__desc { font-size: 12px; }
+  .bento--projects .bento__title {
+    font-size: 14px;
+  }
+
+  .bento--projects .bento__desc {
+    font-size: 12px;
+  }
 }
 
 /* Small phones: keep the bar's labels legible. */
 @media (max-width: 380px) {
-  .tabbar { left: 10px; right: 10px; height: 62px; }
-  .tabbar__tab { font-size: 10px; }
+  .tabbar {
+    left: 10px;
+    right: 10px;
+    height: 62px;
+  }
+
+  .tabbar__tab {
+    font-size: 10px;
+  }
 }

@@ -1,0 +1,104 @@
+/* Page transition: the old page drifts back and blurs away while the new one
+   glides in from the side you navigated towards. Direction comes from
+   <html data-nav-dir="forward|back">, set in App.tsx. */
+
+:root {
+  --vt-x: 64px;
+}
+
+:root[data-nav-dir='back'] {
+  --vt-x: -64px;
+}
+
+/* Fill the panel so fixed-height pages (Home, Projects...) keep their sizing. */
+.page-transition {
+  height: 100%;
+  width: 100%;
+  view-transition-name: page;
+}
+
+/* The group itself must not animate size/position, only the two snapshots. */
+::view-transition-group(page) {
+  animation-duration: 0s;
+}
+
+::view-transition-old(page),
+::view-transition-new(page) {
+  mix-blend-mode: normal;
+  transform-origin: 50% 40%;
+  will-change: transform, opacity, filter;
+}
+
+/* Old page: recedes, shrinks a touch, softens and fades. Quick. */
+::view-transition-old(page) {
+  animation: page-vt-out 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* New page: starts slightly late (so the two don't muddy), then glides in
+   with a long, soft landing. */
+::view-transition-new(page) {
+  animation: page-vt-in 620ms cubic-bezier(0.16, 1, 0.3, 1) 90ms both;
+}
+
+@keyframes page-vt-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate3d(calc(var(--vt-x) * -0.45), 0, 0) scale(0.97);
+    filter: blur(8px);
+  }
+}
+
+@keyframes page-vt-in {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--vt-x), 12px, 0) scale(1.02);
+    filter: blur(10px);
+  }
+
+  60% {
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+/* Fallback for browsers without View Transitions: instant swap, soft glide in. */
+.page-transition[data-fallback-in='true'] {
+  animation: page-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--vt-x), 12px, 0) scale(1.02);
+    filter: blur(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition[data-fallback-in] {
+    animation: none;
+  }
+
+  ::view-transition-group(page),
+  ::view-transition-old(page),
+  ::view-transition-new(page) {
+    animation: none;
+  }
+}

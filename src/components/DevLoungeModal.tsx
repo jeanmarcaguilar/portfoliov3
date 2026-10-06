@@ -69,6 +69,9 @@ export default function DevLoungeModal({
   const storiesRef = useRef<HTMLDivElement>(null)
   const feedEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Prevents the rawProfiles effect from overwriting userNoteUpdatedAt right
+  // after a post — keeps "just now" visible until the next natural sync.
+  const skipNextTimestampUpdate = useRef(false)
 
   // Device & User State
   const [deviceId, setDeviceId] = useState<string>('')
@@ -131,7 +134,10 @@ export default function DevLoungeModal({
       const isSelf = p.device_id === deviceId
       const timestamp = p.created_at || new Date().toISOString()
       if (isSelf) {
-        setUserNoteUpdatedAt(timestamp)
+        if (!skipNextTimestampUpdate.current) {
+          setUserNoteUpdatedAt(timestamp)
+        }
+        skipNextTimestampUpdate.current = false
       }
       return {
         id: p.id,
@@ -143,6 +149,10 @@ export default function DevLoungeModal({
         isMe: isSelf,
       }
     })
+
+    // Always put the current user first
+    formattedStories.sort((a, b) => (a.isMe ? -1 : b.isMe ? 1 : 0))
+
     setStories(formattedStories)
   }, [rawProfiles, deviceId])
 
@@ -310,7 +320,8 @@ export default function DevLoungeModal({
     const cleaned = noteModalInput.trim()
     const nowIso = new Date().toISOString()
     setUserNote(cleaned)
-    setUserNoteUpdatedAt(nowIso)
+    setUserNoteUpdatedAt(nowIso)          // reset to "just now"
+    skipNextTimestampUpdate.current = true // don't let fetchData overwrite it
     setIsNoteModalOpen(false)
 
     // Instantly update the Rail bubble without waiting for DB round-trip

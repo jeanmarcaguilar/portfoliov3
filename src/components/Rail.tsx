@@ -13,7 +13,6 @@ import { getTheme, toggleTheme, type Theme } from '@/lib/theme'
 import { profile } from '@/data/profile'
 import { incrementVisits, formatVisits } from '@/lib/visits'
 import WeatherRailButton from './WeatherRailButton'
-import { supabase } from '@/lib/supabase'
 
 export const RAIL_LINKS = [
   { label: 'Home', to: '/', Icon: HomeIcon },
@@ -23,13 +22,27 @@ export const RAIL_LINKS = [
   { label: 'Contact', to: '/contact', Icon: MessageIcon },
 ] as const
 
+// 10 rotating thought items
+const ROTATING_NOTES = [
+  "Building cool stuff",
+  " Debugging with focus",
+  "Learning something new",
+  "Designing clean UI/UX",
+  "Shipping features",
+  "Always coding",
+  "Always Second Option...",
+  "Backburner",
+  "Take a change with me...",
+  "Yearning",
+]
+
 export default function Rail() {
   const [theme, setThemeState] = useState<Theme>('light')
   const [visits, setVisits] = useState<number>(0)
   const hasIncrementedVisits = useRef(false)
 
-  // Live note from DB — reflects whatever is saved in DevLoungeModal
-  const [currentNote, setCurrentNote] = useState<string>('')
+  // Rotating note state
+  const [currentNoteIndex, setCurrentNoteIndex] = useState(0)
 
   useEffect(() => setThemeState(getTheme()), [])
 
@@ -40,43 +53,15 @@ export default function Rail() {
     }
   }, [])
 
-  // Fetch note from DB and subscribe to real-time changes
+  // Rotate through the 10 notes every 4 seconds
   useEffect(() => {
-    const devId = localStorage.getItem('lounge_device_id')
-    if (!devId) return
-
-    // Initial fetch
-    const fetchNote = async () => {
-      const { data } = await supabase
-        .from('lounge_profiles')
-        .select('note')
-        .eq('device_id', devId)
-        .maybeSingle()
-      if (data) setCurrentNote(data.note || '')
-    }
-    fetchNote()
-
-    // Real-time subscription — fallback sync via Supabase
-    const channel = supabase
-      .channel('rail-note-sync')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'lounge_profiles' },
-        async () => { fetchNote() },
-      )
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
+    const timer = setInterval(() => {
+      setCurrentNoteIndex((prevIndex) => (prevIndex + 1) % ROTATING_NOTES.length)
+    }, 4000)
+    return () => clearInterval(timer)
   }, [])
 
-  // Instant update — fired directly by DevLoungeModal on post/remove (no refresh needed)
-  useEffect(() => {
-    const handleNoteUpdate = (e: Event) => {
-      setCurrentNote((e as CustomEvent<string>).detail)
-    }
-    window.addEventListener('rail:note-updated', handleNoteUpdate)
-    return () => window.removeEventListener('rail:note-updated', handleNoteUpdate)
-  }, [])
+  const currentNote = ROTATING_NOTES[currentNoteIndex]
 
   return (
     <aside className="rail" aria-label="Profile and site navigation">

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState, useEffect, useLayoutEffect, useRef } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { flushSync } from 'react-dom'
+import { useLocation, useOutlet } from 'react-router-dom'
 import TabBar from '@/components/TabBar'
 import QuickMenu from '@/components/QuickMenu'
 import Rail from '@/components/Rail'
@@ -21,9 +22,87 @@ import { getPerfTier, watchFrameHealth, PERF_TIER_EVENT } from '@/lib/perf'
 const HeroCanvas = lazy(() => import('@/components/HeroCanvasV2'))
 
 /**
+ * Page transition with no wait. The old page is cross-faded into the new one
+ * the instant the route changes, using the View Transitions API (Chrome,
+ * Edge, Safari 18+, Firefox 144+). Browsers without it swap instantly and
+ * the new page fades in. The first load is skipped: the intro owns that.
+ */
+// Tab order, so the page can slide forward or back depending on where you go.
+const ROUTE_ORDER = [
+  '/',
+  '/projects',
+  '/services',
+  '/showcase',
+  '/testimonials',
+  '/about',
+  '/seminars',
+  '/tech-stack',
+  '/contact',
+]
+
+type VTDocument = Document & {
+  startViewTransition?: (cb: () => void) => unknown
+}
+
+function PageTransition({ onSwap }: { onSwap: () => void }) {
+  const { pathname } = useLocation()
+  const outlet = useOutlet()
+  const [shown, setShown] = useState({ path: pathname, outlet })
+  const [fallbackIn, setFallbackIn] = useState(false)
+
+  // Always the freshest route element, readable from callbacks.
+  const latest = useRef({ path: pathname, outlet })
+  latest.current = { path: pathname, outlet }
+
+  useEffect(() => {
+    if (pathname === shown.path) return
+
+    const swap = () => {
+      setShown(latest.current)
+      onSwap()
+    }
+
+    const reduced =
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches || motionReduced()
+    const doc = document as VTDocument
+
+    // Slide direction for the CSS: forward = towards a later tab.
+    const from = ROUTE_ORDER.indexOf(shown.path)
+    const to = ROUTE_ORDER.indexOf(pathname)
+    const dir = from !== -1 && to !== -1 && to < from ? 'back' : 'forward'
+    doc.documentElement.dataset.navDir = dir
+
+    if (reduced) {
+      swap()
+    } else if (doc.startViewTransition) {
+      // The browser snapshots the old page, runs this, then cross-fades to
+      // the new DOM. flushSync makes React commit before the new snapshot.
+      doc.startViewTransition(() => flushSync(swap))
+    } else {
+      swap()
+      setFallbackIn(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
+
+  // Until the swap runs, keep showing the old page; afterwards the live one.
+  const content = pathname === shown.path ? outlet : shown.outlet
+
+  return (
+    <div
+      key={shown.path}
+      className="page-transition"
+      data-fallback-in={fallbackIn ? 'true' : undefined}
+    >
+      <Suspense fallback={null}>{content}</Suspense>
+    </div>
+  )
+}
+
+/**
  * The shell. It owns everything that outlives a route change: the contour
  * shader, the intro, the profile rail and the one scrolling panel. Each route
- * renders its view into that panel through the Outlet.
+ * renders its view into that panel through PageTransition (an animated Outlet).
  *
  * Home is the route that shaped the layout: it is sized to the panel box and
  * must not scroll, which is what `data-fixed` switches off. Projects,
@@ -42,11 +121,10 @@ export default function App() {
   const phone = useIsPhone()
   const panelRef = useRef<HTMLElement>(null)
 
-  // The panel is the scroller, so a route change has to reset it by hand -
-  // the browser only restores scroll on the document.
-  useEffect(() => {
-    panelRef.current?.scrollTo({ top: 0, behavior: 'auto' })
-  }, [pathname])
+  // The panel is the scroller, so a route change has to reset it by hand.
+  // PageTransition calls this at the moment the page swaps, while it is
+  // invisible, so the jump is never seen.
+  const resetScroll = () => panelRef.current?.scrollTo({ top: 0, behavior: 'auto' })
 
   // From the first route change on, a page that mounts rises into place
   // (mobile-pass.css). Not on the first load: the intro owns that arrival.
@@ -113,9 +191,7 @@ export default function App() {
           className="shell__panel"
           data-fixed={isFixed ? 'true' : 'false'}
         >
-          <Suspense fallback={null}>
-            <Outlet />
-          </Suspense>
+          <PageTransition onSwap={resetScroll} />
         </main>
       </div>
       {phone && <TabBar />}
