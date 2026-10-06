@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { X, CaretRight, Plus, PaperPlaneRight } from '@/components/slab'
+import { X, CaretRight, Plus } from '@/components/slab'
 import { useDismiss, type DismissReason } from '@/hooks/useDismiss'
 import { supabase } from '@/lib/supabase'
 
@@ -9,6 +9,9 @@ export const LOUNGE_OPEN_EVENT = 'lounge:open'
 export function openDevLounge(target?: HTMLElement | null) {
   window.dispatchEvent(new CustomEvent(LOUNGE_OPEN_EVENT, { detail: target }))
 }
+
+// Every avatar a member can pick (fixed list, no shuffling)
+const AVATAR_SALTS = Array.from({ length: 48 }, (_, i) => `av${String(i + 1).padStart(2, '0')}`)
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '🙏']
 
@@ -119,6 +122,431 @@ function LoungeAvatar({ seed, size = 36 }: { seed: string; size?: number }) {
   )
 }
 
+/* ---------- Community game: Daily Dev Trivia ----------
+   Everyone gets the same 8 questions each day (seeded by the date), so the
+   leaderboard is a fair fight. Scores live in `lounge_scores` (see lounge_scores.sql);
+   if that table isn't set up the game still works, it just can't rank people. */
+
+interface TriviaItem {
+  q: string
+  a: string // the correct answer
+  w: string[] // three wrong answers
+}
+
+const TRIVIA_BANK: TriviaItem[] = [
+  { q: 'Which HTML tag defines the largest heading?', a: '<h1>', w: ['<h6>', '<head>', '<header>'] },
+  { q: 'What does CSS stand for?', a: 'Cascading Style Sheets', w: ['Computer Style Sheets', 'Creative Style System', 'Colorful Style Syntax'] },
+  { q: 'In JavaScript, what does typeof null return?', a: '"object"', w: ['"null"', '"undefined"', '"number"'] },
+  { q: 'Which operator compares both value and type in JavaScript?', a: '===', w: ['==', '=', '!='] },
+  { q: 'Which HTTP status code means "Not Found"?', a: '404', w: ['401', '403', '500'] },
+  { q: 'What does JSON stand for?', a: 'JavaScript Object Notation', w: ['Java Standard Object Naming', 'JavaScript Online Network', 'Joined Script Object Node'] },
+  { q: 'Which React hook runs side effects after render?', a: 'useEffect', w: ['useState', 'useMemo', 'useRef'] },
+  { q: 'What is the time complexity of binary search?', a: 'O(log n)', w: ['O(n)', 'O(1)', 'O(n²)'] },
+  { q: 'Which data structure follows LIFO order?', a: 'Stack', w: ['Queue', 'Heap', 'Graph'] },
+  { q: 'What is the default port for HTTPS?', a: '443', w: ['80', '21', '8080'] },
+  { q: 'Which of these is NOT a primitive type in JavaScript?', a: 'Array', w: ['String', 'Boolean', 'Symbol'] },
+  { q: 'What does git stash do?', a: 'Shelves uncommitted changes for later', w: ['Deletes your last commit', 'Pushes to the remote', 'Creates a new branch'] },
+  { q: 'Which CSS property controls the stacking order of positioned elements?', a: 'z-index', w: ['order', 'layer', 'stack-level'] },
+  { q: 'What does DOM stand for?', a: 'Document Object Model', w: ['Data Object Mapping', 'Dynamic Output Method', 'Document Order Markup'] },
+  { q: 'What does Array.prototype.map() return?', a: 'A new array', w: ['The original array, mutated', 'A single value', 'undefined'] },
+  { q: 'What does console.log(0.1 + 0.2 === 0.3) print in JavaScript?', a: 'false', w: ['true', 'undefined', 'NaN'] },
+  { q: 'Which company created TypeScript?', a: 'Microsoft', w: ['Google', 'Meta', 'Oracle'] },
+  { q: 'What does API stand for?', a: 'Application Programming Interface', w: ['Applied Program Integration', 'Automated Process Instruction', 'Application Protocol Index'] },
+  { q: 'What is the time complexity of reading an array element by index?', a: 'O(1)', w: ['O(log n)', 'O(n)', 'O(n log n)'] },
+  { q: 'Which CSS declaration makes an element a flex container?', a: 'display: flex', w: ['flex: container', 'position: flex', 'float: flex'] },
+  { q: 'HTTP status codes in the 5xx range mean what?', a: 'Server errors', w: ['Redirects', 'Client errors', 'Success'] },
+  { q: 'Which SQL clause filters groups after GROUP BY?', a: 'HAVING', w: ['WHERE', 'FILTER', 'ORDER BY'] },
+  { q: 'What is a .gitignore file for?', a: 'Telling Git which files not to track', w: ['Storing commit messages', 'Listing remote branches', 'Encrypting secrets'] },
+  { q: 'Which symbol starts a CSS class selector?', a: '. (dot)', w: ['# (hash)', '@ (at)', '* (star)'] },
+  { q: 'Which HTTP method is meant to fully replace a resource?', a: 'PUT', w: ['GET', 'HEAD', 'OPTIONS'] },
+  { q: 'What does async/await make easier to work with?', a: 'Promises', w: ['CSS animations', 'Web fonts', 'Git merges'] },
+  { q: 'In Python, which creates an empty dictionary?', a: '{}', w: ['[]', '()', '<>'] },
+  { q: 'Which command installs the dependencies listed in package.json?', a: 'npm install', w: ['npm publish', 'npm init', 'npm audit'] },
+  { q: 'In SOLID, what does the "S" stand for?', a: 'Single Responsibility', w: ['Static Typing', 'Separation of Services', 'Shared State'] },
+  { q: 'Which keyword declares a block-scoped constant in JavaScript?', a: 'const', w: ['var', 'static', 'final'] },
+  { q: 'What does "5" + 3 evaluate to in JavaScript?', a: '"53"', w: ['8', '"8"', 'NaN'] },
+]
+
+const TRIVIA_ROUND = 8
+const TRIVIA_SECONDS = 15
+const MEDALS = ['🥇', '🥈', '🥉']
+
+const triviaDay = () => new Date().toISOString().slice(0, 10) // UTC, so everyone shares one "day"
+
+function hashSeed(s: string) {
+  let h = 1779033703 ^ s.length
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(h ^ s.charCodeAt(i), 3432918353)
+    h = (h << 13) | (h >>> 19)
+  }
+  return h >>> 0
+}
+
+function mulberry32(seed: number) {
+  let a = seed
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function seededShuffle<T>(items: T[], rand: () => number): T[] {
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+interface TriviaQuestion {
+  q: string
+  options: string[]
+  answer: number
+}
+
+function buildRound(day: string): TriviaQuestion[] {
+  const rand = mulberry32(hashSeed(`lounge-trivia-${day}`))
+  return seededShuffle(TRIVIA_BANK, rand)
+    .slice(0, TRIVIA_ROUND)
+    .map((item) => {
+      const options = seededShuffle([item.a, ...item.w], rand)
+      return { q: item.q, options, answer: options.indexOf(item.a) }
+    })
+}
+
+const bestKey = (day: string) => `lounge_trivia_best_${day}`
+const readBest = (day: string) => {
+  try {
+    return Number(localStorage.getItem(bestKey(day))) || 0
+  } catch {
+    return 0
+  }
+}
+const saveBest = (day: string, value: number) => {
+  try {
+    localStorage.setItem(bestKey(day), String(value))
+  } catch {
+    /* storage unavailable (private mode) — not worth interrupting the game */
+  }
+}
+
+const verdictFor = (correct: number) =>
+  correct >= 7 ? 'Dev legend 🏆' : correct >= 5 ? 'Solid work 💪' : correct >= 3 ? 'Getting there 🌱' : 'Warm-up round 😅'
+
+interface LeaderRow {
+  deviceId: string
+  name: string
+  avatarSeed: string
+  score: number
+}
+
+interface DevTriviaProps {
+  deviceId: string
+  userName: string
+  avatarSalt: string
+  refreshKey: number // bumps when someone else finishes a round
+  onFinished: (score: number, correct: number) => void
+  onShare: (text: string) => void
+}
+
+function DevTrivia({ deviceId, userName, avatarSalt, refreshKey, onFinished, onShare }: DevTriviaProps) {
+  const [session, setSession] = useState(() => {
+    const day = triviaDay()
+    return { day, round: buildRound(day) }
+  })
+  const [phase, setPhase] = useState<'intro' | 'playing' | 'done'>('intro')
+  const [index, setIndex] = useState(0)
+  const [score, setScore] = useState(0)
+  const [correct, setCorrect] = useState(0)
+  const [streak, setStreak] = useState(0)
+  const [picked, setPicked] = useState<number | null>(null) // -1 = ran out of time
+  const [gain, setGain] = useState(0)
+  const [timeLeft, setTimeLeft] = useState(TRIVIA_SECONDS)
+  const [best, setBest] = useState(() => readBest(triviaDay()))
+  const [shared, setShared] = useState(false)
+  const [board, setBoard] = useState<LeaderRow[]>([])
+  const [boardState, setBoardState] = useState<'loading' | 'ok' | 'offline'>('loading')
+
+  const deadlineRef = useRef(0)
+  const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(
+    () => () => {
+      if (advanceRef.current) clearTimeout(advanceRef.current)
+    },
+    [],
+  )
+
+  const loadBoard = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('lounge_scores')
+      .select('device_id, name, avatar_salt, score')
+      .eq('day', session.day)
+      .order('score', { ascending: false })
+      .limit(80)
+    if (error || !data) {
+      setBoardState('offline')
+      return
+    }
+    // keep each player's best score only
+    const seen = new Set<string>()
+    const rows: LeaderRow[] = []
+    for (const r of data as any[]) {
+      if (seen.has(r.device_id)) continue
+      seen.add(r.device_id)
+      rows.push({ deviceId: r.device_id, name: r.name, avatarSeed: `${r.name}-${r.avatar_salt}`, score: r.score })
+    }
+    setBoard(rows)
+    setBoardState('ok')
+  }, [session.day])
+
+  useEffect(() => {
+    loadBoard()
+  }, [loadBoard, refreshKey])
+
+  const finish = async (finalScore: number, finalCorrect: number) => {
+    setPhase('done')
+    const prevBest = readBest(session.day)
+    if (finalScore > prevBest) saveBest(session.day, finalScore)
+    setBest(Math.max(prevBest, finalScore))
+    if (!userName) return
+
+    const { error } = await supabase.from('lounge_scores').insert([
+      { device_id: deviceId, name: userName, avatar_salt: avatarSalt, score: finalScore, correct: finalCorrect, day: session.day },
+    ])
+    onFinished(finalScore, finalCorrect)
+    if (error) setBoardState('offline')
+    else loadBoard()
+  }
+
+  const answer = (choice: number) => {
+    if (phase !== 'playing' || picked !== null) return
+    const q = session.round[index]
+    const ok = choice === q.answer
+    const left = choice === -1 ? 0 : Math.max(0, (deadlineRef.current - Date.now()) / 1000)
+
+    let gained = 0
+    let nextStreak = 0
+    if (ok) {
+      nextStreak = streak + 1
+      // 100 for being right + up to 50 for speed + a small streak bonus
+      gained = 100 + Math.round((left / TRIVIA_SECONDS) * 50) + Math.min(nextStreak - 1, 5) * 10
+    }
+    const newScore = score + gained
+    const newCorrect = correct + (ok ? 1 : 0)
+
+    setStreak(nextStreak)
+    setScore(newScore)
+    setCorrect(newCorrect)
+    setGain(gained)
+    setPicked(choice)
+
+    advanceRef.current = setTimeout(() => {
+      if (index + 1 >= session.round.length) {
+        finish(newScore, newCorrect)
+      } else {
+        setIndex(index + 1)
+        setPicked(null)
+      }
+    }, 1300)
+  }
+
+  // Countdown for the current question
+  useEffect(() => {
+    if (phase !== 'playing' || picked !== null) return
+    deadlineRef.current = Date.now() + TRIVIA_SECONDS * 1000
+    setTimeLeft(TRIVIA_SECONDS)
+    const timer = setInterval(() => {
+      const left = Math.max(0, (deadlineRef.current - Date.now()) / 1000)
+      setTimeLeft(left)
+      if (left <= 0) {
+        clearInterval(timer)
+        answer(-1)
+      }
+    }, 100)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, index, picked])
+
+  // Keys 1–4 pick an answer
+  useEffect(() => {
+    if (phase !== 'playing') return
+    const onKey = (e: { key: string; metaKey: boolean; ctrlKey: boolean; altKey: boolean }) => {
+      const n = Number(e.key)
+      if (n >= 1 && n <= 4 && !e.metaKey && !e.ctrlKey && !e.altKey) answer(n - 1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  const start = () => {
+    if (advanceRef.current) clearTimeout(advanceRef.current)
+    const day = triviaDay()
+    if (day !== session.day) {
+      setSession({ day, round: buildRound(day) })
+      setBest(readBest(day))
+    }
+    setIndex(0)
+    setScore(0)
+    setCorrect(0)
+    setStreak(0)
+    setGain(0)
+    setPicked(null)
+    setShared(false)
+    setPhase('playing')
+  }
+
+  const myIdx = board.findIndex((r) => r.deviceId === deviceId)
+
+  const boardEl = (
+    <section className="lounge-board" aria-label="Today's leaderboard">
+      <div className="lounge-board__head">
+        <h4>Today's leaderboard</h4>
+        <span>Resets daily</span>
+      </div>
+      {boardState === 'loading' && <p className="lounge-game__note">Loading scores…</p>}
+      {boardState === 'offline' && (
+        <p className="lounge-game__note">The leaderboard is offline right now. You can still play and share your score in chat.</p>
+      )}
+      {boardState === 'ok' && board.length === 0 && (
+        <p className="lounge-game__note">No scores yet today. Be the first on the board!</p>
+      )}
+      {boardState === 'ok' && board.length > 0 && (
+        <ol className="lounge-board__list">
+          {board.slice(0, 10).map((r, i) => (
+            <li key={r.deviceId} className={`lounge-board__row${r.deviceId === deviceId ? ' is-me' : ''}`}>
+              <span className="lounge-board__rank">{MEDALS[i] ?? i + 1}</span>
+              <LoungeAvatar seed={r.avatarSeed} size={28} />
+              <span className="lounge-board__name">{r.deviceId === deviceId ? 'You' : r.name}</span>
+              <span className="lounge-board__score">{r.score}</span>
+            </li>
+          ))}
+          {myIdx >= 10 && (
+            <li className="lounge-board__row is-me">
+              <span className="lounge-board__rank">{myIdx + 1}</span>
+              <LoungeAvatar seed={board[myIdx].avatarSeed} size={28} />
+              <span className="lounge-board__name">You</span>
+              <span className="lounge-board__score">{board[myIdx].score}</span>
+            </li>
+          )}
+        </ol>
+      )}
+    </section>
+  )
+
+  if (phase === 'playing') {
+    const q = session.round[index]
+    const low = timeLeft <= 5
+    return (
+      <div className="lounge-game">
+        <div className="lounge-game__hud">
+          <span className="lounge-game__progress">
+            Question {index + 1} / {session.round.length}
+          </span>
+          <span className="lounge-game__score">
+            {streak >= 2 && <span className="lounge-game__streak">🔥 {streak}</span>}
+            {score} pts
+          </span>
+        </div>
+
+        <div className={`lounge-game__timer${low ? ' is-low' : ''}`} aria-hidden="true">
+          <i style={{ transform: `scaleX(${picked === null ? timeLeft / TRIVIA_SECONDS : 0})` }} />
+        </div>
+
+        <h3 className="lounge-game__q">{q.q}</h3>
+
+        <div className="lounge-game__opts">
+          {q.options.map((opt, i) => {
+            const state =
+              picked === null ? '' : i === q.answer ? ' is-correct' : i === picked ? ' is-wrong' : ' is-dim'
+            return (
+              <button
+                key={opt}
+                type="button"
+                className={`lounge-game__opt${state}`}
+                onClick={() => answer(i)}
+                disabled={picked !== null}
+              >
+                <span className="lounge-game__key">{i + 1}</span>
+                <span>{opt}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="lounge-game__feedback" aria-live="polite">
+          {picked === -1 && <span className="is-bad">Time's up! The answer was {q.options[q.answer]}</span>}
+          {picked !== null && picked !== -1 && picked === q.answer && <span className="is-good">Correct! +{gain}</span>}
+          {picked !== null && picked !== -1 && picked !== q.answer && (
+            <span className="is-bad">Not quite. The answer was {q.options[q.answer]}</span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (phase === 'done') {
+    const shareText = `🧠 I scored ${score} on today's Dev Trivia (${correct}/${session.round.length} correct). Think you can beat me?`
+    return (
+      <>
+        <div className="lounge-game lounge-game--center">
+          <div className="lounge-game__verdict">{verdictFor(correct)}</div>
+          <div className="lounge-game__big">{score}</div>
+          <p className="lounge-game__sub">
+            {correct} of {session.round.length} correct
+            {myIdx >= 0 && boardState === 'ok' ? ` · you're #${myIdx + 1} today` : ''}
+          </p>
+          <div className="lounge-game__actions">
+            <button
+              type="button"
+              className="lounge-game__btn"
+              onClick={() => {
+                onShare(shareText)
+                setShared(true)
+              }}
+              disabled={shared || !userName}
+            >
+              {shared ? 'Shared ✓' : 'Share to chat'}
+            </button>
+            <button type="button" className="lounge-game__btn is-ghost" onClick={start}>
+              Play again
+            </button>
+          </div>
+          <p className="lounge-game__note">Same questions all day. Only your best score counts.</p>
+        </div>
+        {boardEl}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="lounge-game lounge-game--center">
+        <span className="lounge-game__eyebrow">Your daily challenge</span>
+        <h3 className="lounge-game__title">Daily Dev Trivia</h3>
+        <p className="lounge-game__sub">
+          {TRIVIA_ROUND} questions, {TRIVIA_SECONDS}s each. Everyone in the lounge gets the same set today. Answer fast and keep a streak for bonus points.
+        </p>
+        {best > 0 && (
+          <div className="lounge-game__chip">
+            <span>Your best today</span>
+            <b>{best}</b>
+          </div>
+        )}
+        <div className="lounge-game__actions">
+          <button type="button" className="lounge-game__btn" onClick={start} disabled={!userName}>
+            {best > 0 ? 'Play again' : 'Start playing'}
+          </button>
+        </div>
+      </div>
+      {boardEl}
+    </>
+  )
+}
+
 interface DevLoungeModalProps {
   open?: boolean
   onClose?: () => void
@@ -174,7 +602,6 @@ export default function DevLoungeModal({
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
   const [noteModalInput, setNoteModalInput] = useState('')
   const [isChoosingAvatar, setIsChoosingAvatar] = useState(false)
-  const [avatarChoices, setAvatarChoices] = useState<string[]>([])
 
   // Live Data & Raw Timestamps
   const [rawMessages, setRawMessages] = useState<any[]>([])
@@ -205,6 +632,9 @@ export default function DevLoungeModal({
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Community game (lives beside the chat)
+  const [gameRefresh, setGameRefresh] = useState(0) // bumps when another member finishes a round
+
   // Visible feedback instead of silent console errors
   const showToast = (text: string) => {
     setToast(text)
@@ -214,6 +644,13 @@ export default function DevLoungeModal({
 
   deviceIdRef.current = deviceId
   userNameRef.current = userName
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    },
+    [],
+  )
 
   // Everyone who has joined, keyed by device so reactions can show real names
   const memberByDevice = useMemo(() => {
@@ -474,6 +911,12 @@ export default function DevLoungeModal({
           })
         }
       })
+      // Someone finished a round of the community game: refresh the board and say so
+      .on('broadcast', { event: 'game-score' }, ({ payload }: any) => {
+        if (!payload || payload.deviceId === deviceIdRef.current) return
+        setGameRefresh((n) => n + 1)
+        showToast(`${payload.name} scored ${payload.score} in Dev Trivia`)
+      })
       // Messages (new messages, replies, edits) are applied straight from the event payload,
       // so they show up instantly without another round-trip to the database.
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_messages' }, applyMessageChange)
@@ -566,7 +1009,7 @@ export default function DevLoungeModal({
     if (!registrationInput.trim()) return
 
     const name = registrationInput.trim()
-    const randomSalt = Math.random().toString(36).substring(7)
+    const randomSalt = AVATAR_SALTS[Math.floor(Math.random() * AVATAR_SALTS.length)]
     const nowIso = new Date().toISOString()
 
     // Set initial note to empty string so it shows "Add note" or your fallback text
@@ -582,7 +1025,7 @@ export default function DevLoungeModal({
     ])
 
     if (error) {
-      alert(`Registration failed: ${error.message}`)
+      showToast(`Registration failed: ${error.message}`)
       return
     }
 
@@ -647,8 +1090,6 @@ export default function DevLoungeModal({
   }
 
   const openAvatarPicker = () => {
-    const choices = Array.from({ length: 6 }, () => Math.random().toString(36).substring(7))
-    setAvatarChoices(choices)
     setIsChoosingAvatar(true)
   }
 
@@ -683,7 +1124,7 @@ export default function DevLoungeModal({
 
     if (error) {
       console.error('Error saving note:', error.message)
-      alert(`Could not save note: ${error.message}`)
+      showToast(`Could not save note: ${error.message}`)
     }
 
     fetchData()
@@ -736,6 +1177,7 @@ export default function DevLoungeModal({
     }
   }
 
+  const memberCount = Math.max(allMembers.length, stories.length)
   const typerNames = Object.values(typers)
   const typingLabel =
     typerNames.length === 0
@@ -965,6 +1407,44 @@ export default function DevLoungeModal({
     inputRef.current?.focus()
   }
 
+  /* ---------- community game ---------- */
+
+  const announceScore = (score: number, correct: number) => {
+    const ch = channelRef.current
+    if (!ch || !channelReadyRef.current) return
+    ch.send({
+      type: 'broadcast',
+      event: 'game-score',
+      payload: { deviceId: deviceIdRef.current, name: userNameRef.current, score, correct },
+    })
+  }
+
+  const shareToChat = async (text: string) => {
+    if (!userName) return
+    beginWrite()
+    const { data: saved, error } = await supabase
+      .from('lounge_messages')
+      .insert([
+        {
+          author: userName,
+          location: 'Manila, PH',
+          text,
+          avatar_seed: `${userName}-${avatarSalt}`,
+          device_id: deviceId,
+        },
+      ])
+      .select()
+      .single()
+    endWrite()
+
+    if (error) {
+      showToast(`Couldn't share: ${error.message}`)
+      return
+    }
+    if (saved) setRawMessages((prev) => (prev.some((m) => m.id === saved.id) ? prev : [...prev, saved].sort(byCreatedAt)))
+    fetchData()
+  }
+
   const handleInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     // keep global shortcuts / dismiss handlers from swallowing typing keys
     e.stopPropagation()
@@ -1042,8 +1522,9 @@ export default function DevLoungeModal({
         {isChoosingAvatar && (
           <div className="lounge-sheet">
             <h3 className="lounge-sheet__title">Choose your avatar</h3>
-            <div className="lounge-avatar-grid">
-              {avatarChoices.map((salt) => (
+            <p className="lounge-sheet__sub">Pick any one you like.</p>
+            <div className="lounge-avatar-grid lounge-avatar-grid--all">
+              {AVATAR_SALTS.map((salt) => (
                 <button
                   type="button"
                   key={salt}
@@ -1051,7 +1532,7 @@ export default function DevLoungeModal({
                   className={`lounge-avatar-choice${avatarSalt === salt ? ' is-selected' : ''}`}
                   aria-label="Use this avatar"
                 >
-                  <LoungeAvatar seed={`${userName}-${salt}`} size={56} />
+                  <LoungeAvatar seed={`${userName}-${salt}`} size={52} />
                 </button>
               ))}
             </div>
@@ -1114,21 +1595,20 @@ export default function DevLoungeModal({
         )}
 
         <header className="lounge-header">
-          <div className="lounge-header__left">
-            <div>
-              <h2 className="lounge-header__title">Dev Lounge</h2>
-              <p className="lounge-header__sub">{stories.length} {stories.length === 1 ? 'member' : 'members'} hanging out</p>
-            </div>
+          <h2 className="lounge-header__title">Dev Lounge</h2>
+          <div className="lounge-header__right">
             <span className="lounge-live-badge">
               <span className="lounge-live-dot" />
-              Live
+              Live · {memberCount} {memberCount === 1 ? 'member' : 'members'} hanging out
             </span>
+            <button type="button" className="lounge-close" onClick={() => handleClose('button')} aria-label="Close lounge">
+              <X size={14} weight="bold" />
+            </button>
           </div>
-          <button type="button" className="lounge-close" onClick={() => handleClose('button')} aria-label="Close lounge">
-            <X size={14} weight="bold" />
-          </button>
         </header>
 
+        <div className="lounge-split">
+        <section className="lounge-chat" aria-label="Chat">
         <div className="lounge-stories" ref={storiesRef}>
           {stories.map((s) => {
             const note = s.isMe ? userNote : s.note
@@ -1180,6 +1660,8 @@ export default function DevLoungeModal({
           {messages.length === 0 && (
             <div className="lounge-empty">No messages yet. Say hi and start the conversation.</div>
           )}
+
+          {messages.length > 0 && <div className="lounge-day">Today</div>}
 
           {messages.map((m, i) => {
             const prev = messages[i - 1]
@@ -1418,10 +1900,25 @@ export default function DevLoungeModal({
               disabled={!inputText.trim() || sending}
               aria-label={editingId ? 'Save edit' : 'Send'}
             >
-              <PaperPlaneRight size={16} weight="fill" />
+              {editingId ? 'Save' : 'Send'}
             </button>
           </form>
           </div>
+        </div>
+        </section>
+
+        <aside className="lounge-side" aria-label="Games">
+          <div className="lounge-games">
+            <DevTrivia
+              deviceId={deviceId}
+              userName={userName}
+              avatarSalt={avatarSalt}
+              refreshKey={gameRefresh}
+              onFinished={announceScore}
+              onShare={shareToChat}
+            />
+          </div>
+        </aside>
         </div>
       </div>
     </div>,

@@ -1511,3 +1511,658 @@ button.lounge-note-bubble:hover { animation-play-state: paused; }
   .lounge-mention-menu,
   .lounge-who { animation: none; }
 }
+/* ===================================================
+   TABS + COMMUNITY GAME (Daily Dev Trivia)
+   =================================================== */
+
+.lounge-modal .is-hidden { display: none !important; }
+
+.lounge-tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 4px;
+  margin: 4px var(--l-gutter, 20px) 12px;
+  padding: 4px;
+  background: var(--tint);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.lounge-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.lounge-tab:hover { color: var(--navy); }
+
+.lounge-tab.is-active {
+  background: var(--l-surface);
+  color: var(--navy);
+  box-shadow: 0 4px 12px -6px rgba(6, 12, 26, 0.35);
+}
+
+.lounge-tab__new {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff7a1a, #ff5d8f);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---------- Games panel ---------- */
+
+.lounge-games {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px var(--l-gutter, 20px) 24px;
+  border-top: 1px solid var(--line);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tint) 55%, transparent), transparent 120px);
+}
+
+.lounge-games > * {
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+.lounge-game {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--l-surface);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: 0 14px 30px -18px rgba(6, 12, 26, 0.35);
+  animation: lounge-modal-pop 0.2s ease-out;
+}
+
+.lounge-game--center {
+  align-items: center;
+  text-align: center;
+}
+
+.lounge-game__badge {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #ff7a1a, #ff5d8f);
+  font-size: 30px;
+  box-shadow: 0 12px 24px -10px rgba(255, 93, 143, 0.6);
+}
+
+.lounge-game__title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--navy);
+}
+
+.lounge-game__sub {
+  margin: 0;
+  max-width: 380px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.lounge-game__note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.lounge-game__chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--tint);
+  border: 1px solid var(--line);
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lounge-game__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.lounge-game__btn {
+  padding: 11px 22px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff7a1a, #ff9a3c);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 18px -6px rgba(255, 122, 26, 0.55);
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+
+.lounge-game__btn:hover:not(:disabled) { transform: translateY(-1px); }
+.lounge-game__btn:disabled { opacity: 0.55; cursor: default; box-shadow: none; }
+
+.lounge-game__btn.is-ghost {
+  background: var(--tint);
+  color: var(--navy);
+  border: 1px solid var(--line-strong);
+  box-shadow: none;
+}
+
+/* in-game HUD */
+.lounge-game__hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.lounge-game__score {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--navy);
+}
+
+.lounge-game__streak {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 122, 26, 0.14);
+  color: var(--orange);
+}
+
+.lounge-game__timer {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--tint);
+  overflow: hidden;
+}
+
+.lounge-game__timer > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff7a1a, #ffb02d);
+  transform-origin: left center;
+  transition: transform 0.12s linear;
+}
+
+.lounge-game__timer.is-low > i { background: #ef4444; }
+
+.lounge-game__q {
+  margin: 4px 0 2px;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: var(--navy);
+}
+
+.lounge-game__opts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lounge-game__opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s, opacity 0.15s;
+}
+
+.lounge-game__opt:hover:not(:disabled) {
+  border-color: var(--orange);
+  transform: translateX(2px);
+}
+
+.lounge-game__opt:disabled { cursor: default; }
+
+.lounge-game__key {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--tint);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.lounge-game__opt.is-correct {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.lounge-game__opt.is-wrong {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.lounge-game__opt.is-dim { opacity: 0.5; }
+
+.lounge-game__feedback {
+  min-height: 18px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.lounge-game__feedback .is-good { color: #0e9f6e; }
+.lounge-game__feedback .is-bad { color: #ef4444; }
+
+/* results */
+.lounge-game__verdict {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--orange);
+}
+
+.lounge-game__big {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  color: var(--navy);
+}
+
+/* ---------- Leaderboard ---------- */
+
+.lounge-board {
+  padding: 16px 18px 12px;
+  background: var(--l-surface);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+}
+
+.lounge-board__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.lounge-board__head h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.lounge-board__head span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.lounge-board__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lounge-board__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 12px;
+}
+
+.lounge-board__row.is-me { background: color-mix(in srgb, var(--orange) 12%, transparent); }
+
+.lounge-board__rank {
+  width: 22px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.lounge-board__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.lounge-board__score {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lounge-game,
+  .lounge-game__timer > i,
+  .lounge-game__opt { animation: none; transition: none; }
+}
+
+/* ===================================================
+   FULL-PAGE MODE (keep this block LAST)
+   The lounge still opens as a modal (fixed, above the app,
+   Esc/close to dismiss) but fills the whole viewport instead
+   of sitting in a small centered card.
+   =================================================== */
+
+.lounge-overlay {
+  padding: 0;
+  place-items: stretch;
+  background: var(--paper);          /* solid page, no see-through blur needed */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.lounge-modal,
+.lounge-overlay.is-open .lounge-modal {
+  /* centered reading column; header/feed/composer share the same gutter */
+  --l-gutter: max(20px, calc((100% - 880px) / 2));
+
+  width: 100%;
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;                    /* correct on mobile browser bars */
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* gentle fade/slide-in instead of the card "pop" */
+.lounge-modal { transform: translateY(8px); transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+.lounge-overlay.is-open .lounge-modal { transform: none; }
+
+/* backgrounds and borders stay edge-to-edge; only the content is inset */
+.lounge-header  { padding-inline: var(--l-gutter); padding-top: max(22px, env(safe-area-inset-top)); }
+.lounge-stories { padding-inline: var(--l-gutter); }
+.lounge-feed    { padding-inline: var(--l-gutter); }
+.lounge-bottom  { padding-inline: var(--l-gutter); padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+
+/* wider messages now that there's room */
+.lounge-msg__bubble { max-width: min(560px, 100%); }
+
+/* onboarding / avatar sheets cover the whole page, content stays compact */
+.lounge-sheet { padding: 24px var(--l-gutter); }
+
+@media (max-width: 480px) {
+  .lounge-overlay { align-items: stretch; }
+  .lounge-modal,
+  .lounge-overlay.is-open .lounge-modal {
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+  }
+  .lounge-header  { padding-inline: 18px; }
+  .lounge-stories { padding-inline: 18px; }
+  .lounge-feed    { padding-inline: 16px; }
+  .lounge-bottom  { padding-inline: 14px; }
+}
+
+/* ===================================================
+   ONE MODAL: chat + games side by side (no tabs)
+   =================================================== */
+
+.lounge-tabs { display: none; }
+
+.lounge-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+}
+
+.lounge-chat {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lounge-side {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  border-left: 1px solid var(--line);
+}
+
+.lounge-side .lounge-games {
+  flex: 1 1 auto;
+  border-top: 0;
+  padding: 18px 16px 24px;
+}
+
+/* chat column keeps its own gutter now that the page is split */
+.lounge-chat .lounge-stories,
+.lounge-chat .lounge-feed,
+.lounge-chat .lounge-bottom { padding-inline: 20px; }
+
+/* tablet / phone: games sit under the chat in the same modal */
+@media (max-width: 900px) {
+  .lounge-split {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 42%);
+  }
+  .lounge-side { border-left: 0; border-top: 1px solid var(--line); }
+  .lounge-chat .lounge-stories,
+  .lounge-chat .lounge-feed,
+  .lounge-chat .lounge-bottom { padding-inline: 14px; }
+}
+
+/* ---------- Avatar picker: every avatar at once ---------- */
+.lounge-sheet { overflow-y: auto; }
+
+.lounge-avatar-grid--all {
+  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+  gap: 10px;
+  max-width: 640px;
+  max-height: 58vh;
+  overflow-y: auto;
+  padding: 6px;
+  scrollbar-width: thin;
+}
+
+.lounge-avatar-grid--all .lounge-avatar-choice {
+  display: grid;
+  place-items: center;
+}
+
+
+/* ===================================================
+   SOFT CARD DESIGN (matches the reference screenshot)
+   Page header on top, white chat card left, game cards right
+   =================================================== */
+
+.lounge-modal,
+.lounge-overlay.is-open .lounge-modal {
+  --l-gutter: 32px;
+  background:
+    radial-gradient(70% 50% at 0% 0%, rgba(255, 190, 140, 0.28), transparent 70%),
+    radial-gradient(70% 60% at 100% 100%, rgba(255, 150, 175, 0.2), transparent 70%),
+    var(--paper);
+}
+
+/* header: title left, live pill right */
+.lounge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: max(28px, env(safe-area-inset-top)) var(--l-gutter) 18px;
+  border: 0;
+  background: transparent;
+}
+.lounge-header__title { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; color: var(--navy); margin: 0; }
+.lounge-header__right { display: flex; align-items: center; gap: 10px; }
+.lounge-live-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: 999px;
+  background: var(--l-surface); border: 1px solid var(--line);
+  font-size: 11.5px; font-weight: 600; color: var(--muted);
+}
+
+/* two columns: chat card + game cards */
+.lounge-split {
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  padding: 0 var(--l-gutter) var(--l-gutter);
+}
+
+.lounge-chat {
+  background: var(--l-surface);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  box-shadow: 0 18px 40px -28px rgba(6, 12, 26, 0.35);
+  overflow: hidden;
+  padding: 20px;
+}
+.lounge-side { border: 0; overflow: hidden; }
+.lounge-side .lounge-games {
+  padding: 0;
+  gap: 16px;
+  background: none;
+  border: 0;
+}
+.lounge-chat .lounge-stories,
+.lounge-chat .lounge-feed,
+.lounge-chat .lounge-bottom { padding-inline: 0; }
+
+/* member stories: original note-bubble + gradient-ring style */
+.lounge-chat .lounge-stories {
+  padding-top: 4px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* feed */
+.lounge-chat .lounge-feed { padding-top: 14px; padding-bottom: 8px; gap: 14px; }
+.lounge-day {
+  text-align: center; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  padding: 4px 0 8px;
+}
+.lounge-msg__avatar { display: block; flex-shrink: 0; width: 30px; }
+.lounge-msg { gap: 10px; }
+.lounge-msg__meta { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; display: flex; gap: 4px; }
+.lounge-msg--me .lounge-msg__meta { justify-content: flex-end; }
+.lounge-msg__bubble {
+  border-radius: 18px;
+  padding: 14px 18px;
+  background: var(--tint);
+  color: var(--navy);
+  box-shadow: none;
+  font-size: 13.5px;
+}
+.lounge-msg--me .lounge-msg__bubble {
+  background: linear-gradient(135deg, #ff8a1f, #ff5d7a);
+  color: #fff;
+}
+
+/* composer */
+.lounge-chat .lounge-bottom {
+  background: transparent; backdrop-filter: none;
+  border-top: 1px solid var(--line);
+  padding: 12px 0 0;
+}
+.lounge-bottom__meta { display: flex; gap: 40px; font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+.lounge-name-btn b { font-weight: 500; }
+.lounge-avatar-change-btn { background: none; border: 0; padding: 0; color: var(--muted); font-size: 11.5px; cursor: pointer; }
+.lounge-avatar-change-btn:hover { color: var(--orange); }
+.lounge-form {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 8px 8px 16px;
+  background: var(--l-surface);
+  border: 1px solid var(--orange);
+  border-radius: 16px;
+}
+.lounge-form .lounge-input { flex: 1; border: 0; background: transparent; box-shadow: none; padding: 8px 0; font-size: 13px; }
+.lounge-send-btn {
+  width: auto; height: 38px; padding: 0 18px; border: 0; border-radius: 12px;
+  background: color-mix(in srgb, var(--orange) 16%, var(--white));
+  color: var(--navy); font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.lounge-send-btn.is-active { background: linear-gradient(135deg, #ff8a1f, #ff5d7a); color: #fff; }
+
+/* game cards */
+.lounge-side .lounge-games > * { max-width: none; }
+.lounge-game,
+.lounge-board {
+  padding: 24px;
+  border-radius: 28px;
+  background: var(--l-surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 40px -28px rgba(6, 12, 26, 0.3);
+}
+.lounge-game--center {
+  align-items: stretch; text-align: left;
+  background: color-mix(in srgb, var(--orange) 5%, var(--l-surface));
+}
+.lounge-game__eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.lounge-game__title { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; margin: 4px 0 6px; }
+.lounge-game__sub { font-size: 13px; line-height: 1.6; color: var(--navy); }
+.lounge-game__chip {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 18px; border-radius: 18px;
+  background: var(--l-surface); border: 1px solid var(--line);
+  font-size: 12px; color: var(--muted);
+}
+.lounge-game__chip b { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; color: var(--navy); }
+.lounge-game__actions .lounge-game__btn { width: 100%; border-radius: 14px; height: 46px; }
+.lounge-board__head h4 { font-size: 14px; font-weight: 800; }
+.lounge-board__row { border-radius: 14px; padding: 12px 14px; }
+
+@media (max-width: 900px) {
+  .lounge-modal,
+  .lounge-overlay.is-open .lounge-modal { --l-gutter: 16px; }
+  .lounge-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 14px; }
+  .lounge-side { display: none; }
+  .lounge-chat { padding: 14px; border-radius: 22px; }
+  .lounge-header__title { font-size: 22px; }
+  .lounge-live-badge { font-size: 10.5px; padding: 6px 10px; }
+}
