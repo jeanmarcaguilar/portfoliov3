@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 
 /* ===================================================================
@@ -2233,6 +2234,32 @@ async function llBotPick(letter: string, used: Set<string>, depth: number): Prom
 const llTurnMs = (moves: number, players: number) =>
   Math.max(LL_MIN_SECONDS, LL_TURN_SECONDS - Math.floor(moves / players)) * 1000
 
+// Plays a word out like a person typing it: letter by letter, now and then a typo that gets deleted.
+// `show` gets every intermediate text; resolves false if `alive()` went false (turn changed, table closed).
+const llSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+async function llTypeOut(word: string, show: (text: string) => void, alive: () => boolean): Promise<boolean> {
+  const typo = word.length > 4 && Math.random() < 0.35 ? 2 + Math.floor(Math.random() * (word.length - 3)) : -1
+  let cur = ''
+  for (let i = 0; i < word.length; i++) {
+    if (i === typo) {
+      let w = String.fromCharCode(97 + Math.floor(Math.random() * 26))
+      if (w === word[i]) w = w === 'z' ? 'a' : String.fromCharCode(w.charCodeAt(0) + 1)
+      await llSleep(130 + Math.random() * 120)
+      if (!alive()) return false
+      show(cur + w)
+      await llSleep(380 + Math.random() * 260)
+      if (!alive()) return false
+      show(cur)
+    }
+    await llSleep(i === 0 ? 120 : 95 + Math.random() * 130)
+    if (!alive()) return false
+    cur += word[i]
+    show(cur)
+  }
+  await llSleep(350 + Math.random() * 250)
+  return alive()
+}
+
 function LlWord({ word }: { word: string }) {
   return (
     <>
@@ -2262,6 +2289,7 @@ interface LLSeat {
   empty?: boolean
   pct?: number // 0-100: how much of the turn timer is left (only for the seat whose turn it is)
   said?: string // the last word this player played
+  typing?: string // what this player has typed so far this turn (shown live on the table)
   action?: { label: string; title: string; onClick: () => void }
 }
 
@@ -2316,7 +2344,12 @@ function LLTable({ seats, center, label }: { seats: LLSeat[]; center: ReactNode;
               </span>
             )}
             <span className="lounge-lltable__name">{s.empty ? 'Open seat' : s.me ? 'You' : s.name}</span>
-            {s.status || (s.said && !s.out) ? (
+            {s.turn && !s.out && s.typing ? (
+              <span className="lounge-lltable__said is-live is-typing" aria-label={`${s.name} is typing`}>
+                {s.typing}
+                <i className="lounge-lltable__caret" aria-hidden="true" />
+              </span>
+            ) : s.status || (s.said && !s.out) ? (
               <span className={`lounge-lltable__said${s.thinking ? ' is-think' : ''}${s.turn && !s.thinking ? ' is-live' : ''}${s.out ? ' is-out' : ''}`}>
                 {s.status ?? s.said}
               </span>
@@ -2334,9 +2367,17 @@ function LLTable({ seats, center, label }: { seats: LLSeat[]; center: ReactNode;
 }
 
 // What sits in the middle of the table while a match is on: the letter you need and the word before it
-function LLCenter({ letter, word, note }: { letter: string; word?: string; note?: string }) {
+function LLCenter({ letter, word, note, timer }: { letter: string; word?: string; note?: string; timer?: { left: number; total: number } }) {
+  const left = timer ? Math.max(0, timer.left) : 0
+  const frac = timer ? Math.min(1, left / Math.max(1, timer.total)) : 0
   return (
     <>
+      {timer && (
+        <span className={`lounge-lltable__timer${left <= 6 ? ' is-low' : ''}`} role="timer" aria-label={`${Math.ceil(left)} seconds left`}>
+          <span className="lounge-lltable__timer-bar" style={{ transform: `scaleX(${frac})` }} aria-hidden="true" />
+          <b>{Math.ceil(left)}</b>s
+        </span>
+      )}
       <span className="lounge-lltable__label">Next letter</span>
       <span className="lounge-lltable__tile" aria-label={`Next word starts with ${letter.toUpperCase()}`}>
         {letter ? letter.toUpperCase() : '·'}
@@ -2371,7 +2412,14 @@ function LLStage({
   onClick?: () => void
   children: ReactNode
 }) {
-  return (
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [])
+  return createPortal(
     <div className="lounge-stage" onClick={onClick}>
       <header className="lounge-stage__top">
         <button type="button" className="lounge-stage__back" onClick={onBack} aria-label={backLabel} title={backLabel}>
@@ -2395,7 +2443,8 @@ function LLStage({
       <div className="lounge-stage__table">{children}</div>
       {tools}
       {dock}
-    </div>
+    </div>,
+    document.querySelector('.lounge-overlay') ?? document.body,
   )
 }
 
@@ -2512,6 +2561,7 @@ function LastLetterBotRound({ ctx, finish }: { ctx: GameCtx; finish: (r: ArcadeR
   const [letter, setLetter] = useState('')
   const [alive, setAlive] = useState<string[]>(() => players.map((p) => p.id))
   const [said, setSaid] = useState<Record<string, string>>({})
+  const [typed, setTyped] = useState<Record<string, string>>({})
   const [lastWord, setLastWord] = useState('')
   const [input, setInput] = useState('')
   const [lives, setLives] = useState(LL_LIVES)
@@ -2534,6 +2584,7 @@ function LastLetterBotRound({ ctx, finish }: { ctx: GameCtx; finish: (r: ArcadeR
   const deadline = useRef(0)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
+  const gone = useRef(false)
 
   const later = (fn: () => void, ms: number) => {
     timers.current.push(setTimeout(fn, ms))
@@ -2578,9 +2629,10 @@ function LastLetterBotRound({ ctx, finish }: { ctx: GameCtx; finish: (r: ArcadeR
     setLetter(ltr)
     llWarm(ltr)
     if (note) setBanner(note)
+    setTyped({})
+    deadline.current = Date.now() + LL_TURN_SECONDS * 1000
+    setTimeLeft(LL_TURN_SECONDS)
     if (id === 'me') {
-      deadline.current = Date.now() + LL_TURN_SECONDS * 1000
-      setTimeLeft(LL_TURN_SECONDS)
       st.current.hinted = false
       setHint('')
       busy.current = false
@@ -2593,13 +2645,21 @@ function LastLetterBotRound({ ctx, finish }: { ctx: GameCtx; finish: (r: ArcadeR
       const word = await llBotPick(ltr, used.current, st.current.moves)
       if (done.current || turnRef.current !== id) return
       if (!word) return stump(id, ltr)
+      // the bot types its word out on the table, letter by letter, before it counts
+      const typedAll = await llTypeOut(
+        word,
+        (t) => setTyped({ [id]: t }),
+        () => !gone.current && !done.current && turnRef.current === id,
+      )
+      if (!typedAll) return
+      setTyped({})
       used.current.add(word)
       st.current.moves++
       setSaid((s) => ({ ...s, [id]: word }))
       setLastWord(word)
       setBanner('')
       give(nextAfter(id), llLast(word))
-    }, 1000 + Math.random() * 900)
+    }, 700 + Math.random() * 800)
   }
 
   // A bot with nothing to say is out of the game
@@ -2642,15 +2702,19 @@ function LastLetterBotRound({ ctx, finish }: { ctx: GameCtx; finish: (r: ArcadeR
   loseLifeRef.current = loseLife
 
   useEffect(() => {
+    gone.current = false
     // anyone can open the game, so the table picks a random seat to go first
     give(players[Math.floor(Math.random() * players.length)].id, llRand(LL_START_LETTERS.split('')))
     const tick = setInterval(() => {
-      if (busy.current || done.current || turnRef.current !== 'me') return
+      if (done.current) return
+      const mine = turnRef.current === 'me'
+      if (mine && busy.current) return // the dictionary is checking your word: the clock waits
       const left = Math.max(0, (deadline.current - Date.now()) / 1000)
       setTimeLeft(left)
-      if (left <= 0) loseLifeRef.current("Time's up!")
+      if (mine && left <= 0) loseLifeRef.current("Time's up!")
     }, 100)
     return () => {
+      gone.current = true
       clearInterval(tick)
       timers.current.forEach(clearTimeout)
     }
@@ -2731,8 +2795,9 @@ function LastLetterBotRound({ ctx, finish }: { ctx: GameCtx; finish: (r: ArcadeR
       me: isMe,
       out,
       turn: isTurn,
-      low: isTurn && isMe && timeLeft <= 6,
-      pct: isTurn && isMe ? frac * 100 : undefined,
+      low: isTurn && timeLeft <= 6,
+      pct: isTurn ? frac * 100 : undefined,
+      typing: isTurn ? (isMe ? input : typed[p.id]) : undefined,
       thinking: isTurn && !isMe,
       status: out ? 'Out' : isTurn ? (isMe ? (checking ? 'Checking…' : 'Your turn') : 'Thinking…') : said[p.id],
     }
@@ -2781,7 +2846,7 @@ function LastLetterBotRound({ ctx, finish }: { ctx: GameCtx; finish: (r: ArcadeR
         />
       }
     >
-      <LLTable seats={seats} label="Last Letter table" center={<LLCenter letter={letter} word={lastWord} note={banner} />} />
+      <LLTable seats={seats} label="Last Letter table" center={<LLCenter letter={letter} word={lastWord} note={banner} timer={turn ? { left: timeLeft, total: LL_TURN_SECONDS } : undefined} />} />
     </LLStage>
   )
 }
@@ -2872,6 +2937,8 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
   const [shake, setShake] = useState(0)
   const [checking, setChecking] = useState(false)
   const [joining, setJoiningState] = useState<string | null>(null)
+  const [typed, setTyped] = useState<Record<string, string>>({}) // live typing of whoever's turn it is
+  const typeSent = useRef({ at: 0, text: '', timer: null as ReturnType<typeof setTimeout> | null })
 
   // Refs mirror the state so timers and bus callbacks always see the latest values
   const roomRef = useRef<LLRoom | null>(null)
@@ -2955,6 +3022,7 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
       lastEvent: Date.now(),
     })
     setRoom({ ...r, players: order, status: 'playing', seen: Date.now() })
+    setTyped({})
     dropLobby(r.id)
     setNotice('')
     setChecking(false)
@@ -2965,6 +3033,7 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
     llWarm(ev.letter)
     const g = gameRef.current
     if (!g || g.winner) return
+    setTyped({})
     setGame({
       ...g,
       chain: [...g.chain.slice(-60), { id: ++idRef.current, by: ev.by, word: ev.word }],
@@ -2990,6 +3059,7 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
     const g = gameRef.current
     if (!g || g.winner) return
     const m = meRef.current
+    setTyped({})
     const who = ev.id === m.id ? 'You are' : `${g.players.find((p) => p.id === ev.id)?.name ?? 'Someone'} is`
     setGame({
       ...g,
@@ -3064,9 +3134,22 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
       const word = await llBotPick(letter, h.used, h.moves)
       const cur = gameRef.current
       if (!cur || cur.winner || cur.roomId !== roomId || cur.turn !== turn) return
-      if (word) await hostWord(turn, word, true)
-      else eliminate(turn, 'ran out of words')
-    }, 1400 + Math.random() * 1600)
+      if (!word) return eliminate(turn, 'ran out of words')
+      // everyone watches the bot type its word before it counts
+      const still = () => {
+        const c = gameRef.current
+        return !!c && !c.winner && c.roomId === roomId && c.turn === turn && c.hostId === meRef.current.id
+      }
+      const ok = await llTypeOut(
+        word,
+        (text) => {
+          setTyped({ [turn]: text })
+          send({ t: 'll_type', roomId, by: turn, text })
+        },
+        still,
+      )
+      if (ok) await hostWord(turn, word, true)
+    }, 800 + Math.random() * 900)
   }
 
   // `trusted` = the player's own device already checked the word, so the host skips the lookup
@@ -3258,6 +3341,15 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
           })
         }
         return
+      case 'll_type': {
+        if (!g || g.winner || g.roomId !== p.roomId) return
+        // a player types for themselves; only the host may type on behalf of a bot
+        const by = from === g.hostId && typeof p.by === 'string' ? p.by : from
+        if (by !== g.turn || by === m.id) return
+        const text = String(p.text ?? '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 24)
+        setTyped({ [by]: text })
+        return
+      }
       case 'll_reject':
         if (g && g.roomId === p.roomId && from === g.hostId && p.to === m.id) fail(String(p.reason ?? 'That word was not accepted.'))
         return
@@ -3399,6 +3491,7 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
     host.current.validating = false
     setRoom(null)
     setGame(null)
+    setTyped({})
     setJoining(null)
     setChecking(false)
     setNotice('')
@@ -3431,11 +3524,31 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
     }
   }
 
+  // Tell the table what you're typing (throttled, so the channel never floods)
+  const typing = (raw: string) => {
+    const g = gameRef.current
+    const m = meRef.current
+    if (!g || g.winner || g.turn !== m.id) return
+    const text = raw.toLowerCase().replace(/[^a-z]/g, '').slice(0, 24)
+    const t = typeSent.current
+    t.text = text
+    const flush = () => {
+      t.timer = null
+      t.at = Date.now()
+      const cur = gameRef.current
+      if (cur && !cur.winner && cur.turn === meRef.current.id) send({ t: 'll_type', roomId: cur.roomId, text: t.text })
+    }
+    if (t.timer) return
+    const wait = Math.max(0, 140 - (Date.now() - t.at))
+    if (wait === 0) flush()
+    else t.timer = setTimeout(flush, wait)
+  }
+
   const openLobbies = Object.values(lobbies)
     .filter((r) => r.hostId !== me.id && r.status === 'lobby' && r.players.length < r.size)
     .sort((a, b) => a.size - b.size)
 
-  return { board, lobbies: openLobbies, room, game, notice, shake, checking, joining, create, join, leave, submit, addBot, fillBots, removeBot }
+  return { board, lobbies: openLobbies, room, game, notice, shake, checking, joining, typed, typing, create, join, leave, submit, addBot, fillBots, removeBot }
 }
 
 type LL = ReturnType<typeof useLastLetter>
@@ -3585,6 +3698,7 @@ function LLPlay({ ctx, ll, g }: { ctx: GameCtx; ll: LL; g: LLGame }) {
       low: turn && low,
       thinking: turn && !isMe && !!p.bot,
       pct: turn ? frac * 100 : undefined,
+      typing: turn ? (isMe ? input : ll.typed[p.id]) : undefined,
       status: out ? 'Out' : turn ? (isMe ? (ll.checking ? 'Checking…' : 'Your turn') : p.bot ? 'Thinking…' : 'Typing…') : said[p.id],
     }
   })
@@ -3610,7 +3724,10 @@ function LLPlay({ ctx, ll, g }: { ctx: GameCtx; ll: LL; g: LLGame }) {
         <LLDock
           letter={g.letter}
           value={input}
-          onChange={setInput}
+          onChange={(v) => {
+            setInput(v)
+            ll.typing(v)
+          }}
           onSubmit={() => ll.submit(input)}
           locked={locked}
           shake={ll.shake}
@@ -3620,7 +3737,7 @@ function LLPlay({ ctx, ll, g }: { ctx: GameCtx; ll: LL; g: LLGame }) {
         />
       }
     >
-      <LLTable seats={seats} label="Last Letter table" center={<LLCenter letter={g.letter} word={lastWord} note={note} />} />
+      <LLTable seats={seats} label="Last Letter table" center={<LLCenter letter={g.letter} word={lastWord} note={note} timer={g.winner ? undefined : { left: timeLeft, total: g.turnMs / 1000 }} />} />
     </LLStage>
   )
 }
