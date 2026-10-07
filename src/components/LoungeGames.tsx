@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, type CSSProperties, type FormEvent, type ReactNode } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 
 /* ===================================================================
@@ -2228,12 +2228,6 @@ async function llBotPick(letter: string, used: Set<string>, depth: number): Prom
     pick = pick.filter((x) => x.w !== candidate)
   }
   return free.find((w) => LL_FALLBACK_SET.has(w)) ?? null
-}
-
-// A brand-new opening word that leaves the player something easy to answer with
-function llFresh(used: Set<string>): string {
-  const pool = LL_FALLBACK.filter((w) => !used.has(w) && llEase(llLast(w)) >= 6)
-  return llRand(pool.length ? pool : LL_FALLBACK)
 }
 
 const llTurnMs = (moves: number, players: number) =>
