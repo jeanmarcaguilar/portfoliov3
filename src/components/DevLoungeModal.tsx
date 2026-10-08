@@ -1826,13 +1826,6 @@ export default function DevLoungeModal({
     console.log('BGM toggled, playing:', playingState)
   }
 
-  // Test sound - for debugging
-  const handleTestSound = () => {
-    sounds.initializeAudio()
-    sounds.playSfx('click')
-    console.log('Test sound played')
-  }
-
   // Chats: 'global' or a conversation id (group / direct message)
   const [activeChat, setActiveChat] = useState<string>('global')
   const [rawConvs, setRawConvs] = useState<any[]>([])
