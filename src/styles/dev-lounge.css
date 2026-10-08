@@ -5482,3 +5482,69 @@ button.lounge-note-bubble:hover { animation-play-state: paused; }
   font-size: 12px; font-weight: 700;
 }
 .lounge-music__live button:hover { filter: brightness(1.07); }
+
+/* ===================================================================
+   GROUP MUSIC PLAYER
+   A group made with "Group music player" switched on gets its own pill in
+   the chat header. It has its own queue + volume and never touches the
+   global player (which keeps living in the lounge header / floating).
+   =================================================================== */
+
+/* header row: chat title on the left, the group's player on the right */
+.lounge-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.lounge-chat-head .lounge-chat-title { flex: 1 1 auto; min-width: 0; }
+
+/* the global player is position: fixed; this one sits in the flow */
+.lounge-music.is-inline {
+  position: relative;
+  z-index: 20;
+  flex: none;
+  --music-w: 260px;
+  width: var(--music-w);
+}
+.lounge-music.is-inline .lounge-music__pill {
+  box-shadow: none;
+  border-color: color-mix(in srgb, var(--orange) 38%, var(--line-strong, var(--line)));
+}
+@media (max-width: 640px) {
+  .lounge-music.is-inline { --music-w: 148px; }
+}
+
+/* right side of the group header: "Music" button, or the player + a small hide button */
+.lounge-chat-head__right { display: flex; align-items: center; gap: 6px; flex: none; }
+.lounge-chat-head__hide {
+  flex: none; display: grid; place-items: center; width: 26px; height: 26px;
+  border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer;
+}
+.lounge-chat-head__hide:hover { background: color-mix(in srgb, var(--navy) 10%, transparent); color: var(--navy); }
+
+/* ===================================================================
+   GROUP MUSIC IN THE HEADER
+   Clicking "Music" in a group shows that group's player at the top,
+   right beside the speaker (BGM) button.
+   =================================================================== */
+.lounge-group-music-slot {
+  position: relative;
+  z-index: 40;            /* its playlist drops over the chat below */
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lounge-group-music-slot:empty { display: none; }
+.lounge-group-music-slot .lounge-music.is-inline { --music-w: 240px; }
+
+@media (max-width: 640px) {
+  .lounge-group-music-slot { order: 6; }
+  .lounge-bgm-toggle { order: 7; }
+}
+
+/* group player on: the global player and its header space step aside; closing the group player brings them back */
+.lounge-music.is-suppressed { display: none; }
+.lounge-music-slot.is-collapsed { display: none; }

@@ -172,6 +172,8 @@ const groupTint = (id: string): CSSProperties => {
 const dmId = (a: string, b: string) => `dm_${[a, b].sort().join('_')}`
 const chatsNotSetUp = (err: any) =>
   err?.code === '42P01' || err?.code === '42703' || /lounge_conversations|conversation_id/.test(String(err?.message ?? ''))
+// Which groups have their music player switched on, on this device (nothing is stored in the database)
+const GROUP_MUSIC_ON_KEY = 'lounge_group_music_on_v1'
 
 /* ---------- tiny inline icons (no dependency on the slab icon set) ---------- */
 const iconProps = {
@@ -1077,9 +1079,9 @@ const loadYouTubeApi = (): Promise<any> => {
   return ytApiPromise
 }
 
-const readMusic = (): { tracks: MusicTrack[]; index: number; volume: number } => {
+const readMusic = (key: string = MUSIC_KEY): { tracks: MusicTrack[]; index: number; volume: number } => {
   try {
-    const parsed = JSON.parse(localStorage.getItem(MUSIC_KEY) || '{}')
+    const parsed = JSON.parse(localStorage.getItem(key) || '{}')
     const tracks: MusicTrack[] = Array.isArray(parsed.tracks)
       ? parsed.tracks.filter((t: any) => t && typeof t.id === 'string' && typeof t.title === 'string')
       : []
@@ -1119,19 +1121,30 @@ const NoteIcon = () => (
 function LoungeMusic({
   open,
   covered = false,
+  suppressed = false,
   others = [],
   onNowPlaying,
   commandRef,
   slotRef,
+  variant = 'global',
+  storageKey = MUSIC_KEY,
+  liveLabel = 'Playing in the lounge',
 }: {
   open: boolean
+  suppressed?: boolean // global player only: a group's own player is showing, so this one steps aside
   covered?: boolean // a sheet (new group, new message, avatar picker...) is open over the lounge
   others?: LoungeListener[] // other members who are playing a song right now
   onNowPlaying?: (track: LoungeNowPlaying | null) => void // tells everyone what I'm playing
   commandRef: { current: (text: string) => boolean }
-  slotRef: { current: HTMLDivElement | null }
+  slotRef?: { current: HTMLDivElement | null } // global player only: the header slot it docks into
+  // 'group' = a group chat's own player: it sits in that chat's header, has its own queue + volume,
+  // and pauses when you leave the group or close the lounge. The global player is untouched.
+  variant?: 'global' | 'group'
+  storageKey?: string // where this player's queue + volume are remembered on this device
+  liveLabel?: string
 }) {
-  const saved = useRef(readMusic()).current
+  const isGroup = variant === 'group'
+  const saved = useRef(readMusic(storageKey)).current
   const [tracks, setTracks] = useState<MusicTrack[]>(saved.tracks)
   const [index, setIndex] = useState(saved.index)
   const [volume, setVolume] = useState(saved.volume)
@@ -1141,7 +1154,7 @@ function LoungeMusic({
   const [note, setNote] = useState('')
   const [active, setActive] = useState(false) // a song is loaded (playing or paused): keeps the floating player on screen
   const [dock, setDock] = useState<{ top: number; left: number } | null>(null)
-  const [pos, setPos] = useState<MusicPos | null>(() => readMusicPos()) // dragged position (null = default spot)
+  const [pos, setPos] = useState<MusicPos | null>(() => (isGroup ? null : readMusicPos())) // dragged position (null = default spot)
   const [dragging, setDragging] = useState(false)
   const dragRef = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null)
 
@@ -1164,11 +1177,11 @@ function LoungeMusic({
   // remember queue + volume on this device
   useEffect(() => {
     try {
-      localStorage.setItem(MUSIC_KEY, JSON.stringify({ tracks, index, volume }))
+      localStorage.setItem(storageKey, JSON.stringify({ tracks, index, volume }))
     } catch {
       /* storage unavailable: the player still works for this session */
     }
-  }, [tracks, index, volume])
+  }, [tracks, index, volume, storageKey])
 
   const flash = (text: string) => {
     setNote(text)
@@ -1442,11 +1455,11 @@ function LoungeMusic({
   // While the lounge is open the player sits in the header slot; follow that slot's position.
   // (The player lives on the page itself, not inside the modal, so closing the modal can't stop it.)
   useEffect(() => {
-    if (!open) {
+    if (!open || isGroup) {
       setDock(null)
       return
     }
-    const slot = slotRef.current
+    const slot = slotRef?.current
     if (!slot) return
     let raf = 0
     const until = performance.now() + 800 // the modal animates in, so keep measuring for a moment
@@ -1468,7 +1481,7 @@ function LoungeMusic({
       ro?.disconnect()
       window.removeEventListener('resize', measure)
     }
-  }, [open, slotRef])
+  }, [open, slotRef, isGroup])
 
   // Click anywhere outside the player to close the playlist
   useEffect(() => {
@@ -1506,6 +1519,22 @@ function LoungeMusic({
     onNowPlayingRef.current?.(nowId ? { id: nowId, title: nowTitle } : null)
   }, [nowId, nowTitle])
 
+  // Group player: when it goes away (you switched chats) stop telling the group it is playing,
+  // and pause it whenever the lounge is closed (its video is only visible inside the lounge).
+  useEffect(
+    () => () => {
+      if (isGroup) onNowPlayingRef.current?.(null)
+    },
+    [isGroup],
+  )
+  useEffect(() => {
+    if (isGroup && !open) playerRef.current?.pauseVideo?.()
+  }, [isGroup, open])
+  // Global player steps aside while a group's player is on: pause it so two songs never overlap
+  useEffect(() => {
+    if (suppressed && !isGroup) playerRef.current?.pauseVideo?.()
+  }, [suppressed, isGroup])
+
   const noteEl = note && (
     <p className="lounge-music__note" role="status">
       {note}
@@ -1526,13 +1555,14 @@ function LoungeMusic({
 
   // remember the spot on this device
   useEffect(() => {
+    if (isGroup) return // a group player has no dragged spot, and must not wipe the global one
     try {
       if (pos) localStorage.setItem(MUSIC_POS_KEY, JSON.stringify(pos))
       else localStorage.removeItem(MUSIC_POS_KEY)
     } catch {
       /* storage unavailable: the spot lasts for this session */
     }
-  }, [pos])
+  }, [pos, isGroup])
 
   // keep it on screen when the window is resized or the phone is rotated
   useEffect(() => {
@@ -1543,10 +1573,10 @@ function LoungeMusic({
   }, [clampPos])
 
   // only the closed lounge's floating pill is free to move; inside the lounge it stays docked in the header
-  const free = !open && !!pos
+  const free = !isGroup && !open && !!pos
 
   const onPillPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (open) return // inside the lounge the pill stays docked in the header
+    if (open || isGroup) return // inside the lounge the pill stays docked in the header; a group player never moves
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const root = rootRef.current
     if (!root) return
@@ -1590,7 +1620,7 @@ function LoungeMusic({
   }
 
   const docked = open && !!dock && !free
-  const mode = free ? (active ? 'is-custom' : 'is-hidden') : docked ? 'is-docked' : open ? 'is-measuring' : active ? 'is-floating' : 'is-hidden'
+  const mode = isGroup ? 'is-inline' : free ? (active ? 'is-custom' : 'is-hidden') : docked ? 'is-docked' : open ? 'is-measuring' : active ? 'is-floating' : 'is-hidden'
   // the playlist opens toward the middle of the screen so it never runs off an edge
   const popUp = free && !!pos && pos.y > window.innerHeight / 2
   const popLeft = free && !!pos && pos.x + 150 < window.innerWidth / 2
@@ -1598,7 +1628,7 @@ function LoungeMusic({
 
   return (
     <div
-      className={`lounge-music ${mode}${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}${covered ? ' is-covered' : ''}${popUp ? ' is-up' : ''}${popLeft ? ' is-left' : ''}`}
+      className={`lounge-music ${mode}${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}${covered ? ' is-covered' : ''}${suppressed && !isGroup ? ' is-suppressed' : ''}${popUp ? ' is-up' : ''}${popLeft ? ' is-left' : ''}`}
       ref={rootRef}
       style={free && pos ? { top: pos.y, left: pos.x, right: 'auto', bottom: 'auto' } : docked && dock ? { top: dock.top, left: dock.left } : undefined}
       onPointerDown={keepOut}
@@ -1628,7 +1658,7 @@ function LoungeMusic({
           aria-expanded={expanded}
           aria-label="Open playlist"
         >
-          <b className="lounge-music__title">{current?.title ?? spotlight?.title ?? 'Lounge radio'}</b>
+          <b className="lounge-music__title">{current?.title ?? spotlight?.title ?? (isGroup ? 'Group music' : 'Lounge radio')}</b>
           <span className="lounge-music__status">
             {(playing || spotlight) && (
               <span className="lounge-music__eq" aria-hidden="true">
@@ -1644,7 +1674,7 @@ function LoungeMusic({
         <button type="button" className="lounge-music__btn is-main" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
           {playing ? <PauseIcon /> : <PlayIcon />}
         </button>
-        {!docked && (
+        {!docked && !isGroup && (
           <button type="button" className="lounge-music__btn lounge-music__close" onClick={stopAll} aria-label="Stop music" title="Stop music">
             <X size={11} weight="bold" />
           </button>
@@ -1713,7 +1743,7 @@ function LoungeMusic({
 
           {others.length > 0 && (
             <div className="lounge-music__live">
-              <span className="lounge-music__eyebrow">Playing in the lounge</span>
+              <span className="lounge-music__eyebrow">{liveLabel}</span>
               <ul>
                 {others.map((o) => (
                   <li key={o.deviceId}>
@@ -1801,7 +1831,11 @@ export default function DevLoungeModal({
   const lastTypingSent = useRef(0)
   // The music player registers its slash-command handler here (/play, /pause, ...)
   const musicCommandRef = useRef<(text: string) => boolean>(() => false)
+  // ...and the open group's own player registers here, so /play in a music group goes to that group's player
+  const groupMusicCommandRef = useRef<(text: string) => boolean>(() => false)
   const musicSlotRef = useRef<HTMLDivElement>(null)
+  // header slot (next to the speaker / BGM button) where the open group's music player is shown
+  const [groupMusicSlot, setGroupMusicSlot] = useState<HTMLDivElement | null>(null)
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   // Mention-toast bookkeeping (so old messages never trigger a toast)
   const msgsFetchedRef = useRef(false)
@@ -1842,6 +1876,18 @@ export default function DevLoungeModal({
   const handleNowPlaying = useCallback((t: LoungeNowPlaying | null) => {
     setMyMusic((prev) => (prev?.id === t?.id && prev?.title === t?.title ? prev : t))
   }, [])
+
+  // The song I'm playing in the open group's own player. It is shared ONLY on that group's private
+  // channel (below), never on the public lounge channel, so people outside the group never receive it.
+  const [myGroupMusic, setMyGroupMusic] = useState<LoungeNowPlaying | null>(null)
+  const handleGroupNowPlaying = useCallback((_convId: string, t: LoungeNowPlaying | null) => {
+    setMyGroupMusic((prev) => (prev?.id === t?.id && prev?.title === t?.title ? prev : t))
+  }, [])
+  const groupChRef = useRef<any>(null)
+  const groupChReadyRef = useRef(false)
+  const myGroupMusicRef = useRef<LoungeNowPlaying | null>(null)
+  myGroupMusicRef.current = myGroupMusic
+  const [groupListeners, setGroupListeners] = useState<Record<string, { name: string; id: string; title: string }>>({})
 
   // Typing indicator: deviceId -> name of everyone currently typing
   const [typers, setTypers] = useState<Record<string, string>>({})
@@ -1889,6 +1935,14 @@ export default function DevLoungeModal({
   const [groupName, setGroupName] = useState('')
   const [groupIcon, setGroupIcon] = useState(GROUP_ICONS[0])
   const [groupPick, setGroupPick] = useState<string[]>([])
+  const [groupMusicOn, setGroupMusicOn] = useState<Record<string, boolean>>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(GROUP_MUSIC_ON_KEY) || '{}')
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch {
+      return {}
+    }
+  })
   const [memberQuery, setMemberQuery] = useState('')
   const activeChatRef = useRef('global')
   const conversationsRef = useRef<Conversation[]>([])
@@ -1967,6 +2021,19 @@ export default function DevLoungeModal({
   }, [rawConvs, rawMessages, deviceId, memberByDevice])
   conversationsRef.current = conversations
   const activeConv = activeChat === 'global' ? null : conversations.find((c) => c.id === activeChat) ?? null
+  // the open group's own music player is shown only when this person turned it on (button in the group header)
+  const activeMusic = !!activeConv && activeConv.kind === 'group' && !!groupMusicOn[activeConv.id]
+  const toggleGroupMusic = (id: string) =>
+    setGroupMusicOn((prev) => {
+      const next = { ...prev, [id]: !prev[id] }
+      if (!next[id]) delete next[id]
+      try {
+        localStorage.setItem(GROUP_MUSIC_ON_KEY, JSON.stringify(next))
+      } catch {
+        /* storage unavailable: it lasts for this session */
+      }
+      return next
+    })
 
   // If the chat I was in disappears, go back to the global chat
   useEffect(() => {
@@ -2663,6 +2730,56 @@ export default function DevLoungeModal({
         .map((m) => ({ deviceId: m.deviceId, name: m.name, id: m.music!.id, title: m.music!.title })),
     [online, deviceId],
   )
+  // Other members of the open group who are playing something in the group's own player.
+  const groupMusicOthers = useMemo<LoungeListener[]>(
+    () => Object.entries(groupListeners).map(([id, v]) => ({ deviceId: id, name: v.name, id: v.id, title: v.title })),
+    [groupListeners],
+  )
+
+  // Each music group has its OWN realtime channel ("lounge-music-<group id>"). Only members of the open
+  // group subscribe to it, so a song played in a group is never sent to anyone outside that group.
+  const openMusicGroupId = activeMusic && activeConv ? activeConv.id : null
+  useEffect(() => {
+    groupChReadyRef.current = false
+    groupChRef.current = null
+    setGroupListeners({})
+    if (!openMusicGroupId || !open || !deviceId || !userName) return
+    const conv = conversationsRef.current.find((c) => c.id === openMusicGroupId)
+    if (!conv || !conv.members.includes(deviceId)) return // not a member: never connect
+
+    const ch = supabase.channel(`lounge-music-${openMusicGroupId}`, { config: { presence: { key: deviceId } } })
+    const read = () => {
+      const members = conversationsRef.current.find((c) => c.id === openMusicGroupId)?.members ?? []
+      const state = (ch.presenceState() ?? {}) as Record<string, any[]>
+      const next: Record<string, { name: string; id: string; title: string }> = {}
+      Object.entries(state).forEach(([key, metas]) => {
+        if (key === deviceId || !members.includes(key)) return // me, or someone who is not in the group
+        const last = metas[metas.length - 1]
+        const m = last?.music
+        if (m && typeof m.id === 'string' && /^[\w-]{11}$/.test(m.id)) {
+          next[key] = { name: String(last?.name ?? 'Someone').slice(0, 40), id: m.id, title: String(m.title ?? 'YouTube video').slice(0, 120) }
+        }
+      })
+      setGroupListeners(next)
+    }
+    ch.on('presence', { event: 'sync' }, read).subscribe((status: string) => {
+      if (status === 'SUBSCRIBED') {
+        groupChRef.current = ch
+        groupChReadyRef.current = true
+        void ch.track({ name: userName, music: myGroupMusicRef.current })
+      }
+    })
+    return () => {
+      groupChReadyRef.current = false
+      groupChRef.current = null
+      supabase.removeChannel(ch)
+    }
+  }, [openMusicGroupId, open, deviceId, userName])
+
+  // tell the group (and only the group) when my song changes
+  useEffect(() => {
+    if (groupChReadyRef.current) void groupChRef.current?.track({ name: userNameRef.current, music: myGroupMusic })
+  }, [myGroupMusic])
   const onlineIds = useMemo(() => new Set(onlineList.map((m) => m.id)), [onlineList])
   const onlineTitle = onlineList.length
     ? `Online now: ${onlineList.map((m) => (m.id === deviceId ? 'You' : m.name)).join(', ')}`
@@ -2836,7 +2953,7 @@ export default function DevLoungeModal({
     }
 
     // Music commands (/play lofi, /skip, ...) run the player instead of sending a message
-    if (!editingId && textToSend.startsWith('/') && musicCommandRef.current(textToSend)) {
+    if (!editingId && textToSend.startsWith('/') && (activeMusic ? groupMusicCommandRef : musicCommandRef).current(textToSend)) {
       setInputText('')
       setMentionQuery(null)
       lastTypingSent.current = 0
@@ -3103,7 +3220,7 @@ export default function DevLoungeModal({
 
   // The player is portaled straight to <body>, outside the modal, so it keeps playing after the lounge closes
   const musicEl = createPortal(
-    <LoungeMusic open={!!open} covered={!!open && (needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet)} others={musicOthers} onNowPlaying={handleNowPlaying} commandRef={musicCommandRef} slotRef={musicSlotRef} />,
+    <LoungeMusic open={!!open} suppressed={!!open && activeMusic} covered={!!open && (needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet)} others={musicOthers} onNowPlaying={handleNowPlaying} commandRef={musicCommandRef} slotRef={musicSlotRef} />,
     document.body,
   )
 
@@ -3315,7 +3432,8 @@ export default function DevLoungeModal({
             </div>
           </div>
           <div className="lounge-header__right">
-            <div className="lounge-music-slot" ref={musicSlotRef} aria-hidden="true" />
+            <div className={`lounge-music-slot${activeMusic ? ' is-collapsed' : ''}`} ref={musicSlotRef} aria-hidden="true" />
+            <div className="lounge-group-music-slot" ref={setGroupMusicSlot} />
             <button
               type="button"
               className="lounge-bgm-toggle"
@@ -3440,6 +3558,7 @@ export default function DevLoungeModal({
           </div>
 
           {activeConv && (
+            <div className="lounge-chat-head">
             <div className="lounge-chat-title" aria-live="polite">
               {activeConv.kind === 'dm' ? (
                 <LoungeAvatar seed={activeConv.avatarSeed} size={20} />
@@ -3457,8 +3576,46 @@ export default function DevLoungeModal({
                 <span>{activeConv.members.length} members</span>
               )}
             </div>
+            {activeConv.kind === 'group' && (
+              <div className="lounge-chat-head__right">
+                <button
+                  type="button"
+                  className={`lounge-chip${activeMusic ? ' is-active' : ''}`}
+                  onClick={() => toggleGroupMusic(activeConv.id)}
+                  aria-pressed={activeMusic}
+                  title={activeMusic ? 'Hide this group\'s music player' : 'Show this group\'s music player at the top'}
+                >
+                  <NoteIcon />
+                  Music
+                </button>
+              </div>
+            )}
+            </div>
           )}
         </div>
+
+        {/* The group's music player is drawn up in the header, beside the speaker button.
+            It is still rendered by this component, so its queue, volume and playback are untouched. */}
+        {activeMusic && activeConv && groupMusicSlot &&
+          createPortal(
+            <>
+              <LoungeMusic
+                key={activeConv.id}
+                variant="group"
+                storageKey={`lounge_music_group_${activeConv.id}`}
+                open={!!open}
+                covered={needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet}
+                others={groupMusicOthers}
+                liveLabel="Playing in this group"
+                onNowPlaying={(t) => handleGroupNowPlaying(activeConv.id, t)}
+                commandRef={groupMusicCommandRef}
+              />
+              <button type="button" className="lounge-chat-head__hide" onClick={() => toggleGroupMusic(activeConv.id)} aria-label="Hide music player" title="Hide music player">
+                <X size={11} weight="bold" />
+              </button>
+            </>,
+            groupMusicSlot,
+          )}
 
         <div className="lounge-feed" onClick={() => { setActiveMsgId(null); setPickerFor(null); setWhoFor(null) }}>
           {messages.length === 0 && (
