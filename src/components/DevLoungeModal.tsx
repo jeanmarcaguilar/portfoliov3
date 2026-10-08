@@ -1944,6 +1944,10 @@ export default function DevLoungeModal({
     }
   })
   const [memberQuery, setMemberQuery] = useState('')
+  // groups whose player was switched on automatically because a member started playing (not saved)
+  const [groupAuto, setGroupAuto] = useState<Record<string, boolean>>({})
+  // groups where I closed the player while someone was still playing: don't pop it open again
+  const [groupDismissed, setGroupDismissed] = useState<Record<string, boolean>>({})
   const activeChatRef = useRef('global')
   const conversationsRef = useRef<Conversation[]>([])
   activeChatRef.current = activeChat
@@ -2022,18 +2026,46 @@ export default function DevLoungeModal({
   conversationsRef.current = conversations
   const activeConv = activeChat === 'global' ? null : conversations.find((c) => c.id === activeChat) ?? null
   // the open group's own music player is shown only when this person turned it on (button in the group header)
-  const activeMusic = !!activeConv && activeConv.kind === 'group' && !!groupMusicOn[activeConv.id]
-  const toggleGroupMusic = (id: string) =>
-    setGroupMusicOn((prev) => {
-      const next = { ...prev, [id]: !prev[id] }
-      if (!next[id]) delete next[id]
-      try {
-        localStorage.setItem(GROUP_MUSIC_ON_KEY, JSON.stringify(next))
-      } catch {
-        /* storage unavailable: it lasts for this session */
-      }
-      return next
-    })
+  const activeMusic = !!activeConv && activeConv.kind === 'group' && (!!groupMusicOn[activeConv.id] || !!groupAuto[activeConv.id])
+  const toggleGroupMusic = (id: string) => {
+    if (activeMusic) {
+      // close it, and stay closed even if someone is still playing
+      setGroupAuto((p) => ({ ...p, [id]: false }))
+      setGroupDismissed((p) => ({ ...p, [id]: true }))
+      setGroupMusicOn((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        try {
+          localStorage.setItem(GROUP_MUSIC_ON_KEY, JSON.stringify(next))
+        } catch {
+          /* storage unavailable: it lasts for this session */
+        }
+        return next
+      })
+    } else {
+      setGroupDismissed((p) => ({ ...p, [id]: false }))
+      setGroupMusicOn((prev) => {
+        const next = { ...prev, [id]: true }
+        try {
+          localStorage.setItem(GROUP_MUSIC_ON_KEY, JSON.stringify(next))
+        } catch {
+          /* storage unavailable: it lasts for this session */
+        }
+        return next
+      })
+    }
+  }
+  // Someone in the open group starts playing: show the group player by itself, no button press needed
+  const someoneIsPlayingInGroup = Object.keys(groupListeners).length > 0
+  useEffect(() => {
+    if (!activeConv || activeConv.kind !== 'group') return
+    const id = activeConv.id
+    if (someoneIsPlayingInGroup) {
+      if (!groupDismissed[id]) setGroupAuto((p) => (p[id] ? p : { ...p, [id]: true }))
+    } else if (groupDismissed[id]) {
+      setGroupDismissed((p) => ({ ...p, [id]: false })) // everyone stopped: the next song may open it again
+    }
+  }, [activeConv, someoneIsPlayingInGroup, groupDismissed])
 
   // If the chat I was in disappears, go back to the global chat
   useEffect(() => {
@@ -2738,7 +2770,7 @@ export default function DevLoungeModal({
 
   // Each music group has its OWN realtime channel ("lounge-music-<group id>"). Only members of the open
   // group subscribe to it, so a song played in a group is never sent to anyone outside that group.
-  const openMusicGroupId = activeMusic && activeConv ? activeConv.id : null
+  const openMusicGroupId = activeConv && activeConv.kind === 'group' ? activeConv.id : null
   useEffect(() => {
     groupChReadyRef.current = false
     groupChRef.current = null

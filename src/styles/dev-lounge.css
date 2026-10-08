@@ -5548,3 +5548,16 @@ button.lounge-note-bubble:hover { animation-play-state: paused; }
 /* group player on: the global player and its header space step aside; closing the group player brings them back */
 .lounge-music.is-suppressed { display: none; }
 .lounge-music-slot.is-collapsed { display: none; }
+
+/* phones: the song title is hidden, so the group pill shrinks to just its buttons (no empty stretch) */
+@media (max-width: 640px) {
+  .lounge-group-music-slot .lounge-music.is-inline {
+    --music-w: auto;
+    width: auto;
+  }
+  .lounge-group-music-slot .lounge-music.is-inline .lounge-music__pill {
+    width: auto;
+    gap: 4px;
+  }
+  .lounge-group-music-slot .lounge-music.is-inline .lounge-music__screen { width: 44px; }
+}
