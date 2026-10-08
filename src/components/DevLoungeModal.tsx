@@ -96,6 +96,9 @@ interface LoungeMember {
 interface LoungeNowPlaying {
   id: string // YouTube video id
   title: string
+  // Wall-clock time (ms) at which this song was at 0:00 on the host's player. Everyone else uses it to
+  // jump to the same second. null = live stream (nothing to seek to).
+  startedAt?: number | null
 }
 interface OnlineMember {
   deviceId: string
@@ -108,6 +111,7 @@ interface LoungeListener {
   name: string
   id: string
   title: string
+  startedAt?: number | null
 }
 
 // How long (ms) a "typing" signal stays alive without a refresh
@@ -1156,6 +1160,14 @@ function LoungeMusic({
   const [dock, setDock] = useState<{ top: number; left: number } | null>(null)
   const [pos, setPos] = useState<MusicPos | null>(() => (isGroup ? null : readMusicPos())) // dragged position (null = default spot)
   const [dragging, setDragging] = useState(false)
+  // Follow mode: someone else started a song, so this player plays the same song at the same second.
+  // While following I do NOT announce anything (only the person who pressed play is the "host").
+  const [following, setFollowing] = useState(false)
+  const [loadedVid, setLoadedVid] = useState('') // the YouTube id the player is actually playing right now
+  const followingRef = useRef(false)
+  const hostingRef = useRef(false) // I pressed play myself and I am playing
+  const myStartRef = useRef(0) // when my own song started (used to decide who "pressed play last")
+  const userPausedKeyRef = useRef('') // the host song I paused on purpose: don't force it back on me
   const dragRef = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null)
 
   const rootRef = useRef<HTMLDivElement>(null)
@@ -1168,6 +1180,7 @@ function LoungeMusic({
   const volumeRef = useRef(volume)
   const skipRef = useRef<(dir: 1 | -1) => void>(() => {})
   const finishRef = useRef<() => void>(() => {}) // a song ended: drop it from the list, play the next
+  const leaderRef = useRef<LoungeListener | null>(null)
   tracksRef.current = tracks
   indexRef.current = index
   volumeRef.current = volume
@@ -1207,11 +1220,17 @@ function LoungeMusic({
                   resolve(player)
                 },
                 onStateChange: (e: any) => {
-                  if (e.data === 1) setPlaying(true)
-                  else if (e.data === 2) setPlaying(false)
+                  if (e.data === 1) {
+                    setPlaying(true)
+                    try {
+                      setLoadedVid(player.getVideoData?.()?.video_id ?? '')
+                    } catch {
+                      /* ignore */
+                    }
+                  } else if (e.data === 2) setPlaying(false)
                   else if (e.data === 0) {
                     setPlaying(false)
-                    finishRef.current()
+                    if (!followingRef.current) finishRef.current() // following: the host moves on, I just wait for their next song
                   }
                   // swap a placeholder title for the real one once YouTube knows it
                   if (e.data === 1 || e.data === 3) {
@@ -1225,7 +1244,7 @@ function LoungeMusic({
                 onError: () => {
                   flash("That video can't be played here. Skipping.")
                   setPlaying(false)
-                  if (tracksRef.current.length > 1) skipRef.current(1)
+                  if (!followingRef.current && tracksRef.current.length > 1) skipRef.current(1)
                 },
               },
             })
@@ -1244,6 +1263,8 @@ function LoungeMusic({
       const track = tracksRef.current[i]
       if (!track) return
       setIndex(i)
+      followingRef.current = false // I chose a song myself: I am the host now, everyone else follows me
+      setFollowing(false)
       try {
         const player = await ensurePlayer()
         loadedRef.current = true
@@ -1264,6 +1285,23 @@ function LoungeMusic({
   skipRef.current = skip
 
   const togglePlay = async () => {
+    // Following someone: Play/Pause only affects THIS device. It never starts a second copy of the song.
+    if (followingRef.current) {
+      try {
+        const player = await ensurePlayer()
+        if (player.getPlayerState() === 1) {
+          userPausedKeyRef.current = leaderKeyRef.current
+          player.pauseVideo()
+        } else {
+          userPausedKeyRef.current = ''
+          if (leaderRef.current) followLeader(leaderRef.current)
+          else player.playVideo()
+        }
+      } catch {
+        /* flash() already told the user */
+      }
+      return
+    }
     if (!current) {
       setExpanded(true)
       return
@@ -1397,6 +1435,9 @@ function LoungeMusic({
   }
 
   const stopAll = () => {
+    if (followingRef.current) userPausedKeyRef.current = leaderKeyRef.current
+    followingRef.current = false
+    setFollowing(false)
     playerRef.current?.stopVideo?.()
     loadedRef.current = false
     setPlaying(false)
@@ -1508,16 +1549,122 @@ function LoungeMusic({
 
   // If I'm not playing anything, the pill shows what someone else in the lounge is playing
   const spotlight = !current && others.length > 0 ? others[0] : null
-  const status = !current ? (spotlight ? `${spotlight.name} is playing` : 'Add a song') : playing ? 'Now playing' : 'Paused'
 
-  // Tell the lounge what I'm playing (null when paused / stopped)
+  // Tell the lounge what I'm playing (null when paused / stopped, and also while I am only following
+  // someone else, so followers never echo the song back and the music can't double up)
   const onNowPlayingRef = useRef(onNowPlaying)
   onNowPlayingRef.current = onNowPlaying
   const nowId = playing && current ? current.id : null
   const nowTitle = playing && current ? current.title : ''
+  hostingRef.current = !following && !!nowId
   useEffect(() => {
-    onNowPlayingRef.current?.(nowId ? { id: nowId, title: nowTitle } : null)
-  }, [nowId, nowTitle])
+    if (following || !nowId) {
+      myStartRef.current = 0
+      onNowPlayingRef.current?.(null)
+      return
+    }
+    if (loadedVid !== nowId) return // the player is still switching songs: wait until it really plays this one
+    // the exact moment this song was at 0:00, so other devices can jump to the same second
+    let startedAt: number | null = null
+    try {
+      const p = playerRef.current
+      if ((p?.getDuration?.() ?? 0) > 0) startedAt = Math.round(Date.now() - (p.getCurrentTime?.() ?? 0) * 1000)
+    } catch {
+      /* live stream or player not ready: followers just start from the beginning / live edge */
+    }
+    myStartRef.current = startedAt ?? Date.now()
+    onNowPlayingRef.current?.({ id: nowId, title: nowTitle, startedAt })
+  }, [nowId, nowTitle, following, loadedVid])
+
+  // ---------- auto-follow: when someone else plays, play the same song at the same second ----------
+  // The person who pressed play LAST is the leader (so if two people start songs, everyone settles on the newer one).
+  const leader = useMemo<LoungeListener | null>(() => {
+    let best: LoungeListener | null = null
+    for (const o of others) {
+      if (!best) best = o
+      else {
+        const a = o.startedAt ?? 0
+        const b = best.startedAt ?? 0
+        if (a > b || (a === b && o.deviceId > best.deviceId)) best = o
+      }
+    }
+    return best
+  }, [others])
+  leaderRef.current = leader
+  const leaderKey = leader ? `${leader.deviceId}|${leader.id}|${leader.startedAt ?? ''}` : ''
+  const leaderKeyRef = useRef('')
+  leaderKeyRef.current = leaderKey
+
+  const followed = following && leader ? leader : null
+  const status = followed
+    ? playing
+      ? `Listening with ${followed.name}`
+      : 'Paused'
+    : !current
+      ? spotlight
+        ? `${spotlight.name} is playing`
+        : 'Add a song'
+      : playing
+        ? 'Now playing'
+        : 'Paused'
+
+  const followLeader = async (l: LoungeListener) => {
+    try {
+      const player = await ensurePlayer()
+      followingRef.current = true
+      setFollowing(true)
+      loadedRef.current = true
+      setActive(true)
+      const start = l.startedAt ? Math.max(0, (Date.now() - l.startedAt) / 1000) : 0
+      player.loadVideoById({ videoId: l.id, startSeconds: start })
+      // Browsers can block sound until the person has tapped the page once: if so, ask for one tap
+      window.setTimeout(() => {
+        try {
+          const st = player.getPlayerState?.()
+          if (followingRef.current && st !== 1 && st !== 3 && userPausedKeyRef.current !== leaderKeyRef.current) flash('Tap play to join the music')
+        } catch {
+          /* player gone */
+        }
+      }, 2500)
+    } catch {
+      /* flash() already told the user */
+    }
+  }
+
+  useEffect(() => {
+    if (suppressed && !isGroup) return // a group's own player is showing, so the global one stays quiet
+    if (!open && (isGroup || !followingRef.current)) return
+    if (!leader) {
+      // the host stopped / paused / left: stop following and go quiet
+      userPausedKeyRef.current = ''
+      if (followingRef.current) {
+        followingRef.current = false
+        setFollowing(false)
+        playerRef.current?.pauseVideo?.()
+      }
+      return
+    }
+    // I pressed play more recently than the leader did: keep my own song
+    if (hostingRef.current && myStartRef.current >= (leader.startedAt ?? 0)) return
+    // I paused this exact song on purpose: leave it paused until the host starts something new
+    if (userPausedKeyRef.current === leaderKey) return
+    void followLeader(leader)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaderKey, open, suppressed, isGroup])
+
+  // keep followers on the same second as the host (fixes slow loading / buffering drift)
+  useEffect(() => {
+    if (!following) return
+    const t = window.setInterval(() => {
+      const l = leaderRef.current
+      const p = playerRef.current
+      if (!l?.startedAt || !p || p.getPlayerState?.() !== 1) return
+      const dur = p.getDuration?.() ?? 0
+      const expected = (Date.now() - l.startedAt) / 1000
+      if (dur > 0 && expected < dur && Math.abs((p.getCurrentTime?.() ?? 0) - expected) > 2.5) p.seekTo?.(expected, true)
+    }, 6000)
+    return () => window.clearInterval(t)
+  }, [following])
 
   // Group player: when it goes away (you switched chats) stop telling the group it is playing,
   // and pause it whenever the lounge is closed (its video is only visible inside the lounge).
@@ -1658,7 +1805,7 @@ function LoungeMusic({
           aria-expanded={expanded}
           aria-label="Open playlist"
         >
-          <b className="lounge-music__title">{current?.title ?? spotlight?.title ?? (isGroup ? 'Group music' : 'Lounge radio')}</b>
+          <b className="lounge-music__title">{followed?.title ?? current?.title ?? spotlight?.title ?? (isGroup ? 'Group music' : 'Lounge radio')}</b>
           <span className="lounge-music__status">
             {(playing || spotlight) && (
               <span className="lounge-music__eq" aria-hidden="true">
@@ -1874,20 +2021,20 @@ export default function DevLoungeModal({
   // The song I'm playing, shared through presence so everyone can see it
   const [myMusic, setMyMusic] = useState<LoungeNowPlaying | null>(null)
   const handleNowPlaying = useCallback((t: LoungeNowPlaying | null) => {
-    setMyMusic((prev) => (prev?.id === t?.id && prev?.title === t?.title ? prev : t))
+    setMyMusic((prev) => (prev?.id === t?.id && prev?.title === t?.title && prev?.startedAt === t?.startedAt ? prev : t))
   }, [])
 
   // The song I'm playing in the open group's own player. It is shared ONLY on that group's private
   // channel (below), never on the public lounge channel, so people outside the group never receive it.
   const [myGroupMusic, setMyGroupMusic] = useState<LoungeNowPlaying | null>(null)
   const handleGroupNowPlaying = useCallback((_convId: string, t: LoungeNowPlaying | null) => {
-    setMyGroupMusic((prev) => (prev?.id === t?.id && prev?.title === t?.title ? prev : t))
+    setMyGroupMusic((prev) => (prev?.id === t?.id && prev?.title === t?.title && prev?.startedAt === t?.startedAt ? prev : t))
   }, [])
   const groupChRef = useRef<any>(null)
   const groupChReadyRef = useRef(false)
   const myGroupMusicRef = useRef<LoungeNowPlaying | null>(null)
   myGroupMusicRef.current = myGroupMusic
-  const [groupListeners, setGroupListeners] = useState<Record<string, { name: string; id: string; title: string }>>({})
+  const [groupListeners, setGroupListeners] = useState<Record<string, { name: string; id: string; title: string; startedAt: number | null }>>({})
 
   // Typing indicator: deviceId -> name of everyone currently typing
   const [typers, setTypers] = useState<Record<string, string>>({})
@@ -2326,7 +2473,7 @@ export default function DevLoungeModal({
         // only accept a well-formed YouTube id from other clients
         const m = last?.music
         const music: LoungeNowPlaying | null =
-          m && typeof m.id === 'string' && /^[\w-]{11}$/.test(m.id) ? { id: m.id, title: String(m.title ?? 'YouTube video').slice(0, 120) } : null
+          m && typeof m.id === 'string' && /^[\w-]{11}$/.test(m.id) ? { id: m.id, title: String(m.title ?? 'YouTube video').slice(0, 120), startedAt: typeof m.startedAt === 'number' ? m.startedAt : null } : null
         next[key] = { deviceId: key, name: last?.name ?? 'Someone', music }
       })
       setOnline(next)
@@ -2759,12 +2906,12 @@ export default function DevLoungeModal({
     () =>
       Object.values(online)
         .filter((m) => m.music && m.deviceId !== deviceId)
-        .map((m) => ({ deviceId: m.deviceId, name: m.name, id: m.music!.id, title: m.music!.title })),
+        .map((m) => ({ deviceId: m.deviceId, name: m.name, id: m.music!.id, title: m.music!.title, startedAt: m.music!.startedAt ?? null })),
     [online, deviceId],
   )
   // Other members of the open group who are playing something in the group's own player.
   const groupMusicOthers = useMemo<LoungeListener[]>(
-    () => Object.entries(groupListeners).map(([id, v]) => ({ deviceId: id, name: v.name, id: v.id, title: v.title })),
+    () => Object.entries(groupListeners).map(([id, v]) => ({ deviceId: id, name: v.name, id: v.id, title: v.title, startedAt: v.startedAt })),
     [groupListeners],
   )
 
@@ -2783,13 +2930,13 @@ export default function DevLoungeModal({
     const read = () => {
       const members = conversationsRef.current.find((c) => c.id === openMusicGroupId)?.members ?? []
       const state = (ch.presenceState() ?? {}) as Record<string, any[]>
-      const next: Record<string, { name: string; id: string; title: string }> = {}
+      const next: Record<string, { name: string; id: string; title: string; startedAt: number | null }> = {}
       Object.entries(state).forEach(([key, metas]) => {
         if (key === deviceId || !members.includes(key)) return // me, or someone who is not in the group
         const last = metas[metas.length - 1]
         const m = last?.music
         if (m && typeof m.id === 'string' && /^[\w-]{11}$/.test(m.id)) {
-          next[key] = { name: String(last?.name ?? 'Someone').slice(0, 40), id: m.id, title: String(m.title ?? 'YouTube video').slice(0, 120) }
+          next[key] = { name: String(last?.name ?? 'Someone').slice(0, 40), id: m.id, title: String(m.title ?? 'YouTube video').slice(0, 120), startedAt: typeof m.startedAt === 'number' ? m.startedAt : null }
         }
       })
       setGroupListeners(next)
