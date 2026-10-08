@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode, type ChangeEvent, type FormEvent, type KeyboardEvent, type CSSProperties } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode, type ChangeEvent, type FormEvent, type KeyboardEvent, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { X, CaretRight, Plus } from '@/components/slab'
 import { useDismiss, type DismissReason } from '@/hooks/useDismiss'
@@ -21,15 +21,29 @@ const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '🙏']
    Plays a soft two-note "ding" when someone DMs me or @mentions me. */
 let pingCtx: AudioContext | null = null
 let lastPingAt = 0
+function getPingCtx(): AudioContext | null {
+  const Ctor: typeof AudioContext | undefined = window.AudioContext ?? (window as any).webkitAudioContext
+  if (!Ctor) return null
+  if (!pingCtx) pingCtx = new Ctor()
+  return pingCtx
+}
+// Browsers keep audio muted until the person has clicked / tapped / typed on the page once.
+// Called from the first interaction so the ding is allowed to play later, when a message arrives.
+function unlockPing() {
+  try {
+    const ctx = getPingCtx()
+    if (ctx && ctx.state === 'suspended') void ctx.resume()
+  } catch {
+    /* audio unsupported */
+  }
+}
 function playPing() {
   try {
     const now = Date.now()
     if (now - lastPingAt < 400) return // several messages at once = one ding
     lastPingAt = now
-    const Ctor: typeof AudioContext | undefined = window.AudioContext ?? (window as any).webkitAudioContext
-    if (!Ctor) return
-    if (!pingCtx) pingCtx = new Ctor()
-    const ctx = pingCtx
+    const ctx = getPingCtx()
+    if (!ctx) return
     if (ctx.state === 'suspended') void ctx.resume()
     const t0 = ctx.currentTime
     ;[880, 1318.5].forEach((freq, i) => {
@@ -104,6 +118,7 @@ interface Message {
 
 interface StoryUser {
   id: string
+  deviceId: string
   name: string
   updatedAt: string
   time: string
@@ -963,6 +978,19 @@ interface MusicTrack {
 }
 
 const MUSIC_KEY = 'lounge_music_v1'
+// Where the person dragged the music pill to (null = default spot). Stored per device.
+const MUSIC_POS_KEY = 'lounge_music_pos_v1'
+type MusicPos = { x: number; y: number }
+function readMusicPos(): MusicPos | null {
+  try {
+    const raw = localStorage.getItem(MUSIC_POS_KEY)
+    if (!raw) return null
+    const p = JSON.parse(raw)
+    return typeof p?.x === 'number' && typeof p?.y === 'number' ? { x: p.x, y: p.y } : null
+  } catch {
+    return null
+  }
+}
 // Built-in stations: `/play lofi` works with no search key at all
 const STATIONS: { key: string; label: string; track: MusicTrack }[] = [
   { key: 'lofi', label: '☕ Lofi', track: { id: 'jfKfPfyJRdk', title: 'lofi hip hop radio' } },
@@ -1075,7 +1103,15 @@ const NoteIcon = () => (
   </svg>
 )
 
-function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { current: (text: string) => boolean } }) {
+function LoungeMusic({
+  open,
+  commandRef,
+  slotRef,
+}: {
+  open: boolean
+  commandRef: { current: (text: string) => boolean }
+  slotRef: { current: HTMLDivElement | null }
+}) {
   const saved = useRef(readMusic()).current
   const [tracks, setTracks] = useState<MusicTrack[]>(saved.tracks)
   const [index, setIndex] = useState(saved.index)
@@ -1084,6 +1120,11 @@ function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { curren
   const [expanded, setExpanded] = useState(false)
   const [input, setInput] = useState('')
   const [note, setNote] = useState('')
+  const [active, setActive] = useState(false) // a song is loaded (playing or paused): keeps the floating player on screen
+  const [dock, setDock] = useState<{ top: number; left: number } | null>(null)
+  const [pos, setPos] = useState<MusicPos | null>(() => readMusicPos()) // dragged position (null = default spot)
+  const [dragging, setDragging] = useState(false)
+  const dragRef = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null)
 
   const rootRef = useRef<HTMLDivElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -1094,6 +1135,7 @@ function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { curren
   const indexRef = useRef(index)
   const volumeRef = useRef(volume)
   const skipRef = useRef<(dir: 1 | -1) => void>(() => {})
+  const finishRef = useRef<() => void>(() => {}) // a song ended: drop it from the list, play the next
   tracksRef.current = tracks
   indexRef.current = index
   volumeRef.current = volume
@@ -1137,7 +1179,7 @@ function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { curren
                   else if (e.data === 2) setPlaying(false)
                   else if (e.data === 0) {
                     setPlaying(false)
-                    skipRef.current(1)
+                    finishRef.current()
                   }
                   // swap a placeholder title for the real one once YouTube knows it
                   if (e.data === 1 || e.data === 3) {
@@ -1173,6 +1215,7 @@ function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { curren
       try {
         const player = await ensurePlayer()
         loadedRef.current = true
+        setActive(true)
         player.loadVideoById(track.id)
       } catch {
         /* flash() already told the user */
@@ -1286,9 +1329,7 @@ function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { curren
         skip(-1)
         return true
       case 'stop':
-        player?.stopVideo?.()
-        loadedRef.current = false
-        setPlaying(false)
+        stopAll()
         return true
       case 'volume':
       case 'vol':
@@ -1323,6 +1364,14 @@ function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { curren
     playQuery(text, false)
   }
 
+  const stopAll = () => {
+    playerRef.current?.stopVideo?.()
+    loadedRef.current = false
+    setPlaying(false)
+    setActive(false)
+    setExpanded(false)
+  }
+
   const removeTrack = (i: number) => {
     const wasCurrent = i === indexRef.current
     const next = tracksRef.current.filter((_, k) => k !== i)
@@ -1330,9 +1379,7 @@ function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { curren
     setTracks(next)
     if (!next.length) {
       setIndex(0)
-      setPlaying(false)
-      loadedRef.current = false
-      playerRef.current?.stopVideo?.()
+      stopAll()
       return
     }
     if (i < indexRef.current) setIndex(indexRef.current - 1)
@@ -1343,18 +1390,66 @@ function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { curren
     }
   }
 
+  // When a song finishes, take it out of the playlist and move on to the next one
+  const finishCurrent = () => {
+    const i = indexRef.current
+    const list = tracksRef.current
+    if (!list[i]) return
+    const next = list.filter((_, k) => k !== i)
+    tracksRef.current = next
+    setTracks(next)
+    if (!next.length) {
+      setIndex(0)
+      stopAll()
+      return
+    }
+    // the next song slides into the finished song's slot (wrap to the start if it was last)
+    const ni = i >= next.length ? 0 : i
+    setIndex(ni)
+    playIndex(ni)
+  }
+  finishRef.current = finishCurrent
+
   const changeVolume = (v: number) => {
     setVolume(v)
     playerRef.current?.setVolume?.(v)
   }
 
-  // Closing the lounge pauses the music (it never restarts by itself) and folds the playlist away
+  // Closing the lounge folds the playlist away, but the music keeps playing (floating player)
+  useEffect(() => {
+    if (!open) setExpanded(false)
+  }, [open])
+
+  // While the lounge is open the player sits in the header slot; follow that slot's position.
+  // (The player lives on the page itself, not inside the modal, so closing the modal can't stop it.)
   useEffect(() => {
     if (!open) {
-      playerRef.current?.pauseVideo?.()
-      setExpanded(false)
+      setDock(null)
+      return
     }
-  }, [open])
+    const slot = slotRef.current
+    if (!slot) return
+    let raf = 0
+    const until = performance.now() + 800 // the modal animates in, so keep measuring for a moment
+    const measure = () => {
+      const r = slot.getBoundingClientRect()
+      setDock((prev) => (prev && Math.abs(prev.top - r.top) < 0.5 && Math.abs(prev.left - r.left) < 0.5 ? prev : { top: r.top, left: r.left }))
+    }
+    const loop = () => {
+      measure()
+      if (performance.now() < until) raf = requestAnimationFrame(loop)
+    }
+    loop()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(slot)
+    if (slot.parentElement) ro?.observe(slot.parentElement)
+    window.addEventListener('resize', measure)
+    return () => {
+      cancelAnimationFrame(raf)
+      ro?.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [open, slotRef])
 
   // Click anywhere outside the player to close the playlist
   useEffect(() => {
@@ -1387,12 +1482,109 @@ function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { curren
     </p>
   )
 
+  // ---------- drag the pill anywhere; it stays where you drop it ----------
+  const clampPos = useCallback((x: number, y: number): MusicPos => {
+    const el = rootRef.current
+    const w = el?.offsetWidth || 300
+    const h = el?.offsetHeight || 44
+    const m = 6
+    return {
+      x: Math.min(Math.max(m, x), Math.max(m, window.innerWidth - w - m)),
+      y: Math.min(Math.max(m, y), Math.max(m, window.innerHeight - h - m)),
+    }
+  }, [])
+
+  // remember the spot on this device
+  useEffect(() => {
+    try {
+      if (pos) localStorage.setItem(MUSIC_POS_KEY, JSON.stringify(pos))
+      else localStorage.removeItem(MUSIC_POS_KEY)
+    } catch {
+      /* storage unavailable: the spot lasts for this session */
+    }
+  }, [pos])
+
+  // keep it on screen when the window is resized or the phone is rotated
+  useEffect(() => {
+    const onResize = () => setPos((p) => (p ? clampPos(p.x, p.y) : p))
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [clampPos])
+
+  // only the closed lounge's floating pill is free to move; inside the lounge it stays docked in the header
+  const free = !open && !!pos
+
+  const onPillPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (open) return // inside the lounge the pill stays docked in the header
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    const root = rootRef.current
+    if (!root) return
+    const r = root.getBoundingClientRect()
+    dragRef.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false }
+  }
+  const onPillPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current
+    if (!d || d.id !== e.pointerId) return
+    const dx = e.clientX - d.sx
+    const dy = e.clientY - d.sy
+    if (!d.moved) {
+      if (Math.hypot(dx, dy) < 6) return // a tap, not a drag: buttons keep working
+      d.moved = true
+      setDragging(true)
+      setExpanded(false)
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId)
+      } catch {
+        /* pointer already gone */
+      }
+    }
+    setPos(clampPos(d.ox + dx, d.oy + dy))
+  }
+  const endPillDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current
+    if (!d || d.id !== e.pointerId) return
+    dragRef.current = null
+    if (!d.moved) return
+    setDragging(false)
+    // the click that follows a drag must not press a button under the finger
+    const swallow = (ev: Event) => {
+      ev.stopPropagation()
+      ev.preventDefault()
+    }
+    window.addEventListener('click', swallow, { capture: true, once: true })
+    window.setTimeout(() => window.removeEventListener('click', swallow, true), 80)
+  }
+  const resetPos = () => {
+    if (!open) setPos(null)
+  }
+
+  const docked = open && !!dock && !free
+  const mode = free ? (active ? 'is-custom' : 'is-hidden') : docked ? 'is-docked' : open ? 'is-measuring' : active ? 'is-floating' : 'is-hidden'
+  // the playlist opens toward the middle of the screen so it never runs off an edge
+  const popUp = free && !!pos && pos.y > window.innerHeight / 2
+  const popLeft = free && !!pos && pos.x + 150 < window.innerWidth / 2
+  const keepOut = (e: { nativeEvent: Event }) => e.nativeEvent.stopPropagation()
+
   return (
-    <div className={`lounge-music${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}`} ref={rootRef}>
-      <div className="lounge-music__pill">
-        <div className="lounge-music__screen">
+    <div
+      className={`lounge-music ${mode}${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}${popUp ? ' is-up' : ''}${popLeft ? ' is-left' : ''}`}
+      ref={rootRef}
+      style={free && pos ? { top: pos.y, left: pos.x, right: 'auto', bottom: 'auto' } : docked && dock ? { top: dock.top, left: dock.left } : undefined}
+      onPointerDown={keepOut}
+      onMouseDown={keepOut}
+      onTouchStart={keepOut}
+    >
+      <div
+        className="lounge-music__pill"
+        onPointerDown={onPillPointerDown}
+        onPointerMove={onPillPointerMove}
+        onPointerUp={endPillDrag}
+        onPointerCancel={endPillDrag}
+      >
+        <div className="lounge-music__screen" onDoubleClick={resetPos} title={open ? undefined : 'Drag the player anywhere · double-click here to reset'}>
           <div ref={wrapRef} className="lounge-music__frame" />
-          {!(playing || loadedRef.current) && (
+          {!(playing || active) && (
             <span className="lounge-music__ph" aria-hidden="true">
               <NoteIcon />
             </span>
@@ -1422,6 +1614,11 @@ function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { curren
         <button type="button" className="lounge-music__btn is-main" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
           {playing ? <PauseIcon /> : <PlayIcon />}
         </button>
+        {!docked && (
+          <button type="button" className="lounge-music__btn lounge-music__close" onClick={stopAll} aria-label="Stop music" title="Stop music">
+            <X size={11} weight="bold" />
+          </button>
+        )}
         <button
           type="button"
           className="lounge-music__btn lounge-music__chev"
@@ -1547,6 +1744,7 @@ export default function DevLoungeModal({
   // Realtime channel + refs so the channel callbacks always see fresh values
   const channelRef = useRef<any>(null)
   const channelReadyRef = useRef(false)
+  const reconnectRef = useRef<() => void>(() => {}) // rebuilds the realtime connection if it is not live
   const deviceIdRef = useRef('')
   const userNameRef = useRef('')
   // Listeners for live duel messages (Tic-Tac-Toe / Quiz Duel). The games subscribe through `duelBus`.
@@ -1554,6 +1752,7 @@ export default function DevLoungeModal({
   const lastTypingSent = useRef(0)
   // The music player registers its slash-command handler here (/play, /pause, ...)
   const musicCommandRef = useRef<(text: string) => boolean>(() => false)
+  const musicSlotRef = useRef<HTMLDivElement>(null)
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   // Mention-toast bookkeeping (so old messages never trigger a toast)
   const msgsFetchedRef = useRef(false)
@@ -1627,6 +1826,13 @@ export default function DevLoungeModal({
     console.log('BGM toggled, playing:', playingState)
   }
 
+  // Test sound - for debugging
+  const handleTestSound = () => {
+    sounds.initializeAudio()
+    sounds.playSfx('click')
+    console.log('Test sound played')
+  }
+
   // Chats: 'global' or a conversation id (group / direct message)
   const [activeChat, setActiveChat] = useState<string>('global')
   const [rawConvs, setRawConvs] = useState<any[]>([])
@@ -1657,6 +1863,17 @@ export default function DevLoungeModal({
     },
     [],
   )
+
+  // Unlock notification sound on the first click / tap / key press (browser autoplay rule)
+  useEffect(() => {
+    const events = ['pointerdown', 'keydown', 'touchstart'] as const
+    const unlock = () => {
+      unlockPing()
+      events.forEach((ev) => window.removeEventListener(ev, unlock))
+    }
+    events.forEach((ev) => window.addEventListener(ev, unlock))
+    return () => events.forEach((ev) => window.removeEventListener(ev, unlock))
+  }, [])
 
   // Everyone who has joined, keyed by device so reactions can show real names
   const memberByDevice = useMemo(() => {
@@ -1820,8 +2037,8 @@ export default function DevLoungeModal({
       if (elsewhere) setUnread((u) => ({ ...u, [chatKey]: (u[chatKey] ?? 0) + 1 }))
       const isMention = !!mentionRe?.test(m.text ?? '')
       const isDm = conv?.kind === 'dm'
-      // Sound: a direct message to me, or an @mention of me (global chat or a group)
-      if (isMention || isDm) playPing()
+      // Sound: any new message in the global chat, a direct message to me, or an @mention of me
+      if (!convKey || isMention || isDm) playPing()
       if (isMention) showToast(`${m.author} mentioned you`)
       else if (conv && elsewhere) showToast(conv.kind === 'dm' ? `${m.author} sent you a message` : `${m.author} in ${conv.name}`)
     })
@@ -1840,6 +2057,7 @@ export default function DevLoungeModal({
       }
       return {
         id: p.id,
+        deviceId: p.device_id,
         name: p.name,
         updatedAt: timestamp,
         time: formatTimeAgo(timestamp),
@@ -1963,72 +2181,141 @@ export default function DevLoungeModal({
       setOnline(next)
     }
 
-    const channel = supabase
-      .channel('public-lounge', { config: { presence: { key: devId } } })
-      .on('presence', { event: 'sync' }, readPresence)
-      .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
-        if (!payload || payload.deviceId === deviceIdRef.current) return
-        if ((payload.chat ?? 'global') !== activeChatRef.current) return
-        const id: string = payload.deviceId
-        clearTimeout(typingTimers.current[id])
-        if (payload.typing) {
-          setTypers((prev) => (prev[id] === payload.name ? prev : { ...prev, [id]: payload.name }))
-          // Auto-expire in case the "stopped typing" signal never arrives
-          typingTimers.current[id] = setTimeout(() => {
+    // The connection is created by connect() so it can be rebuilt: if the socket stalls or drops
+    // (sleeping phone, flaky network, a tab left in the background) it reconnects by itself
+    // instead of staying on "Connecting…" until the page is refreshed.
+    let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
+    let attempts = 0
+
+    const teardown = () => {
+      const old = channelRef.current
+      channelRef.current = null // lets the old channel's CLOSED callback know it is stale
+      channelReadyRef.current = false
+      if (old) supabase.removeChannel(old)
+    }
+
+    const scheduleReconnect = () => {
+      if (cancelled || retryTimer) return
+      const wait = Math.min(1000 * 2 ** attempts, 15000)
+      attempts += 1
+      retryTimer = setTimeout(() => {
+        retryTimer = undefined
+        reconnect()
+      }, wait)
+    }
+
+    const connect = () => {
+      if (cancelled) return
+      const channel = supabase
+        .channel('public-lounge', { config: { presence: { key: devId } } })
+        .on('presence', { event: 'sync' }, readPresence)
+        .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
+          if (!payload || payload.deviceId === deviceIdRef.current) return
+          if ((payload.chat ?? 'global') !== activeChatRef.current) return
+          const id: string = payload.deviceId
+          clearTimeout(typingTimers.current[id])
+          if (payload.typing) {
+            setTypers((prev) => (prev[id] === payload.name ? prev : { ...prev, [id]: payload.name }))
+            // Auto-expire in case the "stopped typing" signal never arrives
+            typingTimers.current[id] = setTimeout(() => {
+              setTypers((prev) => {
+                const { [id]: _gone, ...rest } = prev
+                return rest
+              })
+            }, TYPING_TTL)
+          } else {
             setTypers((prev) => {
               const { [id]: _gone, ...rest } = prev
               return rest
             })
-          }, TYPING_TTL)
-        } else {
-          setTypers((prev) => {
-            const { [id]: _gone, ...rest } = prev
-            return rest
-          })
-        }
-      })
-      // Someone finished a round of the community game: refresh the board and say so
-      .on('broadcast', { event: 'game-score' }, ({ payload }: any) => {
-        if (!payload || payload.deviceId === deviceIdRef.current) return
-        setGameRefresh((n) => n + 1)
-        showToast(`${payload.name} scored ${payload.score} in ${payload.game || 'Dev Trivia'}`)
-      })
-      // Live 1v1 messages (invites, moves, scores). Every client receives them; the games
-      // only act on the ones addressed to this device.
-      .on('broadcast', { event: 'duel' }, ({ payload }: any) => {
-        if (!payload || payload.from === deviceIdRef.current) return
-        duelListeners.current.forEach((fn) => fn(payload))
-      })
-      // Messages (new messages, replies, edits) are applied straight from the event payload,
-      // so they show up instantly without another round-trip to the database.
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_messages' }, applyMessageChange)
-      // Reactions too — counts and "who reacted" update live.
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_reactions' }, applyReactionChange)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_profiles' }, () => {
-        realtimeAliveRef.current = true
-        fetchData()
-      })
-      .subscribe((status: string, err?: Error) => {
-        channelReadyRef.current = status === 'SUBSCRIBED'
-        setChannelReady(status === 'SUBSCRIBED')
-        if (status !== 'SUBSCRIBED') setOnline({}) // can't vouch for anyone while disconnected
-        if (status === 'SUBSCRIBED') {
-          // (Re)connected — catch up on anything missed while offline / before subscribing
+          }
+        })
+        // Someone finished a round of the community game: refresh the board and say so
+        .on('broadcast', { event: 'game-score' }, ({ payload }: any) => {
+          if (!payload || payload.deviceId === deviceIdRef.current) return
+          setGameRefresh((n) => n + 1)
+          showToast(`${payload.name} scored ${payload.score} in ${payload.game || 'Dev Trivia'}`)
+        })
+        // Live 1v1 messages (invites, moves, scores). Every client receives them; the games
+        // only act on the ones addressed to this device.
+        .on('broadcast', { event: 'duel' }, ({ payload }: any) => {
+          if (!payload || payload.from === deviceIdRef.current) return
+          duelListeners.current.forEach((fn) => fn(payload))
+        })
+        // Messages (new messages, replies, edits) are applied straight from the event payload,
+        // so they show up instantly without another round-trip to the database.
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_messages' }, applyMessageChange)
+        // Reactions too — counts and "who reacted" update live.
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_reactions' }, applyReactionChange)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_profiles' }, () => {
+          realtimeAliveRef.current = true
           fetchData()
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('[lounge] realtime problem:', status, err)
-        }
-      })
+        })
+        .subscribe((status: string, err?: Error) => {
+          if (cancelled || channelRef.current !== channel) return // stale channel
+          channelReadyRef.current = status === 'SUBSCRIBED'
+          setChannelReady(status === 'SUBSCRIBED')
+          if (status !== 'SUBSCRIBED') setOnline({}) // can't vouch for anyone while disconnected
+          if (status === 'SUBSCRIBED') {
+            attempts = 0
+            // (Re)connected: catch up on anything missed while offline / before subscribing
+            readPresence()
+            fetchData()
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.warn('[lounge] realtime problem:', status, err)
+            scheduleReconnect()
+          }
+        })
 
-    channelRef.current = channel
+      channelRef.current = channel
+    }
+
+    const reconnect = () => {
+      if (cancelled) return
+      if (retryTimer) {
+        clearTimeout(retryTimer)
+        retryTimer = undefined
+      }
+      teardown()
+      connect()
+    }
+    // lets the "lounge opened" effect below force a fresh connection if the old one is not live
+    reconnectRef.current = () => {
+      if (!channelReadyRef.current) {
+        attempts = 0
+        reconnect()
+      } else {
+        readPresence()
+      }
+    }
+
+    connect()
+
+    // coming back online / returning to the tab: make sure the connection is alive
+    const wake = () => {
+      if (document.visibilityState === 'hidden' || channelReadyRef.current) return
+      attempts = 0
+      reconnect()
+    }
+    window.addEventListener('online', wake)
+    document.addEventListener('visibilitychange', wake)
 
     return () => {
-      channelReadyRef.current = false
-      channelRef.current = null
+      cancelled = true
+      if (retryTimer) clearTimeout(retryTimer)
+      window.removeEventListener('online', wake)
+      document.removeEventListener('visibilitychange', wake)
+      reconnectRef.current = () => {}
       Object.values(typingTimers.current).forEach(clearTimeout)
-      supabase.removeChannel(channel)
+      teardown()
     }
   }, [])
+
+  // Opening the lounge: if the connection went stale, rebuild it now; otherwise refresh who is online
+  useEffect(() => {
+    if (open) reconnectRef.current()
+  }, [open])
 
   // Announce "I'm here" only while the lounge is open and the tab is visible.
   // Closing the lounge (or the tab / losing network) removes you from everyone's online count.
@@ -2315,6 +2602,7 @@ export default function DevLoungeModal({
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
   }, [online, open, userName, deviceId])
   const onlineCount = onlineList.length
+  const onlineIds = useMemo(() => new Set(onlineList.map((m) => m.id)), [onlineList])
   const onlineTitle = onlineList.length
     ? `Online now: ${onlineList.map((m) => (m.id === deviceId ? 'You' : m.name)).join(', ')}`
     : undefined
@@ -2752,7 +3040,13 @@ export default function DevLoungeModal({
     ? messages.find((m) => m.id === editingId)
     : replyingTo
 
-  return createPortal(
+  // The player is portaled straight to <body>, outside the modal, so it keeps playing after the lounge closes
+  const musicEl = createPortal(<LoungeMusic open={!!open} commandRef={musicCommandRef} slotRef={musicSlotRef} />, document.body)
+
+  return (
+    <>
+      {musicEl}
+      {createPortal(
     <div className={`lounge-overlay${open ? ' is-open' : ''}`} ref={rootRef} aria-hidden={!open}>
       <div className="lounge-modal" role="dialog" aria-modal="true" aria-label="Dev Lounge" tabIndex={-1} ref={panelRef}>
         {needsRegistration && (
@@ -2920,7 +3214,7 @@ export default function DevLoungeModal({
                       >
                         <LoungeAvatar seed={m.avatarSeed} size={32} />
                         <span className="lounge-chatsheet__who">{m.name}</span>
-                        {online[m.deviceId] && <span className="lounge-chatsheet__live">online</span>}
+                        <span className={`lounge-chatsheet__live${online[m.deviceId] ? '' : ' is-offline'}`}>{online[m.deviceId] ? 'online' : 'offline'}</span>
                         {chatSheet === 'group' && (
                           <span className="lounge-chatsheet__check" aria-hidden="true">
                             {picked ? '✓' : ''}
@@ -2951,19 +3245,13 @@ export default function DevLoungeModal({
 
         <header className="lounge-header">
           <div className="lounge-header__left">
-            <span className="lounge-header__mark" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2.5l2.1 5.9 5.9 2.1-5.9 2.1L12 18.5l-2.1-5.9L4 10.5l5.9-2.1L12 2.5z" />
-                <path d="M19 15.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3z" opacity=".75" />
-              </svg>
-            </span>
             <div>
               <h2 className="lounge-header__title">Dev Lounge</h2>
               <p className="lounge-header__sub">Chat, unwind and out-quiz the crew</p>
             </div>
           </div>
           <div className="lounge-header__right">
-            <LoungeMusic open={!!open} commandRef={musicCommandRef} />
+            <div className="lounge-music-slot" ref={musicSlotRef} aria-hidden="true" />
             <button
               type="button"
               className="lounge-bgm-toggle"
@@ -2975,13 +3263,7 @@ export default function DevLoungeModal({
             </button>
             <span className={`lounge-live-badge${channelReady ? '' : ' is-offline'}`} title={onlineTitle} aria-live="polite">
               <span className="lounge-live-dot" />
-              {channelReady ? (
-                <>
-                  <b>{onlineCount}</b> online
-                </>
-              ) : (
-                'Connecting…'
-              )}
+              <b>{onlineCount}</b> online
               {memberCount > 0 && <span className="lounge-live-badge__total">· {memberCount} members</span>}
             </span>
             <button type="button" className="lounge-close" onClick={() => handleClose('button')} aria-label="Close lounge">
@@ -3023,11 +3305,12 @@ export default function DevLoungeModal({
                   <div className="lounge-ring__inner">
                     <LoungeAvatar seed={s.avatarSeed} size={40} />
                   </div>
-                  {s.isMe && (
-                    <span className="lounge-avatar-badge">
-                      <Plus size={10} weight="bold" />
-                    </span>
-                  )}
+                  <span
+                    className={`lounge-avatar-badge${onlineIds.has(s.deviceId) ? ' is-online' : ' is-offline'}`}
+                    role="img"
+                    aria-label={onlineIds.has(s.deviceId) ? 'Online' : 'Offline'}
+                    title={onlineIds.has(s.deviceId) ? 'Online' : 'Offline'}
+                  />
                 </div>
                 <span className="lounge-story-name">{s.isMe ? 'You' : s.name}</span>
                 <span className="lounge-story-time">{hasNote ? formatTimeAgo(noteAt ?? undefined) : ''}</span>
@@ -3081,7 +3364,7 @@ export default function DevLoungeModal({
                               </span>
                             )}
                           </span>
-                          {c.kind === 'dm' && online[c.otherId] && <span className="lounge-chat-av__online" aria-hidden="true" />}
+                          {c.kind === 'dm' && <span className={`lounge-chat-av__online${online[c.otherId] ? '' : ' is-offline'}`} aria-hidden="true" />}
                           {count > 0 && <b className="lounge-chat-av__badge">{count > 9 ? '9+' : count}</b>}
                         </span>
                       </button>
@@ -3102,7 +3385,13 @@ export default function DevLoungeModal({
                 </span>
               )}
               <b>{activeConv.name}</b>
-              <span>{activeConv.kind === 'dm' ? (online[activeConv.otherId] ? 'online now' : 'direct message') : `${activeConv.members.length} members`}</span>
+              {activeConv.kind === 'dm' ? (
+                <span className={`lounge-status ${online[activeConv.otherId] ? 'is-online' : 'is-offline'}`}>
+                  {online[activeConv.otherId] ? 'Online' : 'Offline'}
+                </span>
+              ) : (
+                <span>{activeConv.members.length} members</span>
+              )}
             </div>
           )}
         </div>
@@ -3388,5 +3677,7 @@ export default function DevLoungeModal({
       </div>
     </div>,
     document.body,
+  )}
+    </>
   )
 }
