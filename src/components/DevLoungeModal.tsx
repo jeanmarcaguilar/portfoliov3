@@ -92,9 +92,22 @@ interface LoungeMember {
 }
 
 // Someone who currently has the lounge open (from Supabase Realtime Presence)
+// The song someone is playing right now (shared with everyone through presence)
+interface LoungeNowPlaying {
+  id: string // YouTube video id
+  title: string
+}
 interface OnlineMember {
   deviceId: string
   name: string
+  music?: LoungeNowPlaying | null
+}
+// What the music pill shows for another member
+interface LoungeListener {
+  deviceId: string
+  name: string
+  id: string
+  title: string
 }
 
 // How long (ms) a "typing" signal stays alive without a refresh
@@ -1105,10 +1118,16 @@ const NoteIcon = () => (
 
 function LoungeMusic({
   open,
+  covered = false,
+  others = [],
+  onNowPlaying,
   commandRef,
   slotRef,
 }: {
   open: boolean
+  covered?: boolean // a sheet (new group, new message, avatar picker...) is open over the lounge
+  others?: LoungeListener[] // other members who are playing a song right now
+  onNowPlaying?: (track: LoungeNowPlaying | null) => void // tells everyone what I'm playing
   commandRef: { current: (text: string) => boolean }
   slotRef: { current: HTMLDivElement | null }
 }) {
@@ -1415,10 +1434,10 @@ function LoungeMusic({
     playerRef.current?.setVolume?.(v)
   }
 
-  // Closing the lounge folds the playlist away, but the music keeps playing (floating player)
+  // Closing the lounge, or opening a sheet over it, folds the playlist away (the music keeps playing)
   useEffect(() => {
-    if (!open) setExpanded(false)
-  }, [open])
+    if (!open || covered) setExpanded(false)
+  }, [open, covered])
 
   // While the lounge is open the player sits in the header slot; follow that slot's position.
   // (The player lives on the page itself, not inside the modal, so closing the modal can't stop it.)
@@ -1474,7 +1493,18 @@ function LoungeMusic({
     [],
   )
 
-  const status = !current ? 'Add a song' : playing ? 'Now playing' : 'Paused'
+  // If I'm not playing anything, the pill shows what someone else in the lounge is playing
+  const spotlight = !current && others.length > 0 ? others[0] : null
+  const status = !current ? (spotlight ? `${spotlight.name} is playing` : 'Add a song') : playing ? 'Now playing' : 'Paused'
+
+  // Tell the lounge what I'm playing (null when paused / stopped)
+  const onNowPlayingRef = useRef(onNowPlaying)
+  onNowPlayingRef.current = onNowPlaying
+  const nowId = playing && current ? current.id : null
+  const nowTitle = playing && current ? current.title : ''
+  useEffect(() => {
+    onNowPlayingRef.current?.(nowId ? { id: nowId, title: nowTitle } : null)
+  }, [nowId, nowTitle])
 
   const noteEl = note && (
     <p className="lounge-music__note" role="status">
@@ -1568,7 +1598,7 @@ function LoungeMusic({
 
   return (
     <div
-      className={`lounge-music ${mode}${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}${popUp ? ' is-up' : ''}${popLeft ? ' is-left' : ''}`}
+      className={`lounge-music ${mode}${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}${covered ? ' is-covered' : ''}${popUp ? ' is-up' : ''}${popLeft ? ' is-left' : ''}`}
       ref={rootRef}
       style={free && pos ? { top: pos.y, left: pos.x, right: 'auto', bottom: 'auto' } : docked && dock ? { top: dock.top, left: dock.left } : undefined}
       onPointerDown={keepOut}
@@ -1598,9 +1628,9 @@ function LoungeMusic({
           aria-expanded={expanded}
           aria-label="Open playlist"
         >
-          <b className="lounge-music__title">{current?.title ?? 'Lounge radio'}</b>
+          <b className="lounge-music__title">{current?.title ?? spotlight?.title ?? 'Lounge radio'}</b>
           <span className="lounge-music__status">
-            {playing && (
+            {(playing || spotlight) && (
               <span className="lounge-music__eq" aria-hidden="true">
                 <i />
                 <i />
@@ -1680,6 +1710,25 @@ function LoungeMusic({
               Add
             </button>
           </form>
+
+          {others.length > 0 && (
+            <div className="lounge-music__live">
+              <span className="lounge-music__eyebrow">Playing in the lounge</span>
+              <ul>
+                {others.map((o) => (
+                  <li key={o.deviceId}>
+                    <span className="lounge-music__live-who">
+                      <b>{o.name}</b>
+                      <em title={o.title}>{o.title}</em>
+                    </span>
+                    <button type="button" onClick={() => addTrack({ id: o.id, title: o.title }, true)}>
+                      Play too
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {tracks.length === 0 && (
             <div className="lounge-music__empty">
@@ -1788,6 +1837,11 @@ export default function DevLoungeModal({
   // Realtime presence: who has the lounge open right now (deviceId -> member)
   const [channelReady, setChannelReady] = useState(false)
   const [online, setOnline] = useState<Record<string, OnlineMember>>({})
+  // The song I'm playing, shared through presence so everyone can see it
+  const [myMusic, setMyMusic] = useState<LoungeNowPlaying | null>(null)
+  const handleNowPlaying = useCallback((t: LoungeNowPlaying | null) => {
+    setMyMusic((prev) => (prev?.id === t?.id && prev?.title === t?.title ? prev : t))
+  }, [])
 
   // Typing indicator: deviceId -> name of everyone currently typing
   const [typers, setTypers] = useState<Record<string, string>>({})
@@ -2169,7 +2223,12 @@ export default function DevLoungeModal({
         // a member whose every tab is hidden counts as away, not online
         const active = metas.filter((m) => !m?.away)
         if (!active.length) return
-        next[key] = { deviceId: key, name: active[active.length - 1]?.name ?? 'Someone' }
+        const last = active[active.length - 1]
+        // only accept a well-formed YouTube id from other clients
+        const m = last?.music
+        const music: LoungeNowPlaying | null =
+          m && typeof m.id === 'string' && /^[\w-]{11}$/.test(m.id) ? { id: m.id, title: String(m.title ?? 'YouTube video').slice(0, 120) } : null
+        next[key] = { deviceId: key, name: last?.name ?? 'Someone', music }
       })
       setOnline(next)
     }
@@ -2324,13 +2383,14 @@ export default function DevLoungeModal({
         deviceId,
         name: userName,
         avatarSeed: `${userName}-${avatarSalt}`,
+        music: myMusic,
         away: document.visibilityState === 'hidden',
         at: new Date().toISOString(),
       })
     announce()
     document.addEventListener('visibilitychange', announce)
     return () => document.removeEventListener('visibilitychange', announce)
-  }, [channelReady, open, userName, deviceId, avatarSalt])
+  }, [channelReady, open, userName, deviceId, avatarSalt, myMusic])
 
   // New groups / DMs show up live. Separate channel on purpose: if the table isn't set up yet,
   // only this subscription fails and the main lounge channel keeps working.
@@ -2595,6 +2655,14 @@ export default function DevLoungeModal({
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
   }, [online, open, userName, deviceId])
   const onlineCount = onlineList.length
+  // everyone else who is playing a song right now
+  const musicOthers = useMemo<LoungeListener[]>(
+    () =>
+      Object.values(online)
+        .filter((m) => m.music && m.deviceId !== deviceId)
+        .map((m) => ({ deviceId: m.deviceId, name: m.name, id: m.music!.id, title: m.music!.title })),
+    [online, deviceId],
+  )
   const onlineIds = useMemo(() => new Set(onlineList.map((m) => m.id)), [onlineList])
   const onlineTitle = onlineList.length
     ? `Online now: ${onlineList.map((m) => (m.id === deviceId ? 'You' : m.name)).join(', ')}`
@@ -3034,7 +3102,10 @@ export default function DevLoungeModal({
     : replyingTo
 
   // The player is portaled straight to <body>, outside the modal, so it keeps playing after the lounge closes
-  const musicEl = createPortal(<LoungeMusic open={!!open} commandRef={musicCommandRef} slotRef={musicSlotRef} />, document.body)
+  const musicEl = createPortal(
+    <LoungeMusic open={!!open} covered={!!open && (needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet)} others={musicOthers} onNowPlaying={handleNowPlaying} commandRef={musicCommandRef} slotRef={musicSlotRef} />,
+    document.body,
+  )
 
   return (
     <>
