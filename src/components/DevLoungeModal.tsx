@@ -4,6 +4,7 @@ import { X, CaretRight, Plus } from '@/components/slab'
 import { useDismiss, type DismissReason } from '@/hooks/useDismiss'
 import { supabase } from '@/lib/supabase'
 import LoungeGames, { type DuelBus } from './LoungeGames'
+import { sounds } from '@/utils/soundManager'
 
 export const LOUNGE_OPEN_EVENT = 'lounge:open'
 
@@ -15,6 +16,39 @@ export function openDevLounge(target?: HTMLElement | null) {
 const AVATAR_SALTS = Array.from({ length: 48 }, (_, i) => `av${String(i + 1).padStart(2, '0')}`)
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '😮', '🙏']
+
+/* ---------- notification ping (own tiny Web Audio synth, no asset files) ----------
+   Plays a soft two-note "ding" when someone DMs me or @mentions me. */
+let pingCtx: AudioContext | null = null
+let lastPingAt = 0
+function playPing() {
+  try {
+    const now = Date.now()
+    if (now - lastPingAt < 400) return // several messages at once = one ding
+    lastPingAt = now
+    const Ctor: typeof AudioContext | undefined = window.AudioContext ?? (window as any).webkitAudioContext
+    if (!Ctor) return
+    if (!pingCtx) pingCtx = new Ctor()
+    const ctx = pingCtx
+    if (ctx.state === 'suspended') void ctx.resume()
+    const t0 = ctx.currentTime
+    ;[880, 1318.5].forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      const t = t0 + i * 0.12
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0.0001, t)
+      gain.gain.exponentialRampToValueAtTime(0.22, t + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(t)
+      osc.stop(t + 0.4)
+    })
+  } catch {
+    /* audio blocked or unsupported: the toast still shows */
+  }
+}
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -74,6 +108,7 @@ interface StoryUser {
   updatedAt: string
   time: string
   note: string
+  noteAt: string | null // when the note was posted (drives the 24h expiry)
   avatarSeed: string
   isMe?: boolean
 }
@@ -159,7 +194,7 @@ const UsersIcon = () => (
 )
 
 function LoungeAvatar({ seed, size = 36 }: { seed: string; size?: number }) {
-  const avatarUrl = `https://api.dicebear.com/10.x/micah/svg?seed=${encodeURIComponent(seed)}`
+  const avatarUrl = `https://api.dicebear.com/10.x/lorelei/svg?seed=${encodeURIComponent(seed)}`
 
   return (
     <img
@@ -380,6 +415,12 @@ const TRIVIA_SECONDS = 15
 const MEDALS = ['🥇', '🥈', '🥉']
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+// Notes disappear 24 hours after they were posted
+const NOTE_TTL_MS = DAY_MS
+const isNoteLive = (note?: string | null, postedAt?: string | null) =>
+  !!note && !!postedAt && Date.now() - new Date(postedAt).getTime() < NOTE_TTL_MS
+
 const MANILA_OFFSET = 8 * 60 * 60 * 1000 // UTC+8
 
 // The leaderboard "day" rolls over at midnight Manila time, so scores refresh every 24 hours
@@ -577,6 +618,11 @@ function DevTrivia({ deviceId, userName, avatarSalt, refreshKey, onFinished, onS
     setBest(Math.max(prevBest, finalScore))
     if (!userName) return
 
+    // Play win sound if score is decent
+    if (finalCorrect >= 5) {
+      sounds.playSfx('win')
+    }
+
     const { error } = await supabase.from('lounge_scores').insert([
       { device_id: deviceId, name: userName, avatar_salt: avatarSalt, score: finalScore, correct: finalCorrect, day: today },
     ])
@@ -601,6 +647,9 @@ function DevTrivia({ deviceId, userName, avatarSalt, refreshKey, onFinished, onS
       nextStreak = streak + 1
       // 100 for being right + up to 50 for speed + a small streak bonus
       gained = 100 + Math.round((left / TRIVIA_SECONDS) * 50) + Math.min(nextStreak - 1, 5) * 10
+      sounds.playSfx('correct')
+    } else {
+      sounds.playSfx('wrong')
     }
     const newScore = score + gained
     const newCorrect = correct + (ok ? 1 : 0)
@@ -669,6 +718,7 @@ function DevTrivia({ deviceId, userName, avatarSalt, refreshKey, onFinished, onS
     setPicked(null)
     setShared(false)
     setPhase('playing')
+    sounds.playSfx('start')
   }
 
   const myIdx = board.findIndex((r) => r.deviceId === deviceId)
@@ -902,6 +952,574 @@ function DevTrivia({ deviceId, userName, avatarSalt, refreshKey, onFinished, onS
   )
 }
 
+/* ---------- Lounge music player (YouTube) ----------
+   Personal player: paste YouTube links, build a queue, listen while you chat.
+   Uses the official YouTube IFrame API, so the small video must stay visible (YouTube's rules).
+   Queue + volume are remembered on this device. Playback never starts on its own. */
+
+interface MusicTrack {
+  id: string // YouTube video id
+  title: string
+}
+
+const MUSIC_KEY = 'lounge_music_v1'
+// Built-in stations: `/play lofi` works with no search key at all
+const STATIONS: { key: string; label: string; track: MusicTrack }[] = [
+  { key: 'lofi', label: '☕ Lofi', track: { id: 'jfKfPfyJRdk', title: 'lofi hip hop radio' } },
+  { key: 'synthwave', label: '🌆 Synthwave', track: { id: '4xDzrJKXOOY', title: 'synthwave radio' } },
+  { key: 'chillhop', label: '🌿 Chillhop', track: { id: '5yx6BWlEVcY', title: 'chillhop radio' } },
+]
+const findStation = (q: string) => {
+  const key = q.toLowerCase().trim().replace(/\s*(radio|beats|music)$/, '')
+  return STATIONS.find((st) => st.key === key)
+}
+
+// Song-name search uses the YouTube Data API. Put a key in VITE_YOUTUBE_API_KEY (see notes).
+const YT_KEY: string = ((import.meta as any).env?.VITE_YOUTUBE_API_KEY as string | undefined) ?? ''
+const decodeEntities = (t: string) => new DOMParser().parseFromString(t, 'text/html').documentElement.textContent ?? t
+
+async function searchYouTube(query: string): Promise<MusicTrack | null> {
+  const run = async (music: boolean) => {
+    const url =
+      'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=1' +
+      (music ? '&videoCategoryId=10' : '') +
+      `&q=${encodeURIComponent(query)}&key=${YT_KEY}`
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(res.status === 403 ? 'quota' : 'search')
+    const json = await res.json()
+    const item = json.items?.[0]
+    return item?.id?.videoId ? { id: item.id.videoId as string, title: decodeEntities(item.snippet?.title ?? query) } : null
+  }
+  return (await run(true)) ?? (await run(false))
+}
+
+const parseYouTubeId = (input: string): string | null => {
+  const raw = input.trim()
+  if (/^[\w-]{11}$/.test(raw)) return raw
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`)
+    const host = url.hostname.replace(/^www\.|^m\.|^music\./, '')
+    let id: string | null = null
+    if (host === 'youtu.be') id = url.pathname.slice(1).split('/')[0]
+    else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+      if (url.pathname === '/watch') id = url.searchParams.get('v')
+      else {
+        const m = /^\/(?:embed|shorts|live|v)\/([\w-]{11})/.exec(url.pathname)
+        id = m ? m[1] : null
+      }
+    }
+    return id && /^[\w-]{11}$/.test(id) ? id : null
+  } catch {
+    return null
+  }
+}
+
+let ytApiPromise: Promise<any> | null = null
+const loadYouTubeApi = (): Promise<any> => {
+  if (ytApiPromise) return ytApiPromise
+  ytApiPromise = new Promise((resolve, reject) => {
+    const w = window as any
+    if (w.YT?.Player) return resolve(w.YT)
+    const prev = w.onYouTubeIframeAPIReady
+    w.onYouTubeIframeAPIReady = () => {
+      prev?.()
+      resolve(w.YT)
+    }
+    const tag = document.createElement('script')
+    tag.src = 'https://www.youtube.com/iframe_api'
+    tag.onerror = () => {
+      ytApiPromise = null
+      reject(new Error('YouTube could not be loaded'))
+    }
+    document.head.appendChild(tag)
+  })
+  return ytApiPromise
+}
+
+const readMusic = (): { tracks: MusicTrack[]; index: number; volume: number } => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MUSIC_KEY) || '{}')
+    const tracks: MusicTrack[] = Array.isArray(parsed.tracks)
+      ? parsed.tracks.filter((t: any) => t && typeof t.id === 'string' && typeof t.title === 'string')
+      : []
+    const volume = Number.isFinite(parsed.volume) ? Math.min(100, Math.max(0, parsed.volume)) : 35
+    const index = Number.isInteger(parsed.index) && parsed.index >= 0 && parsed.index < tracks.length ? parsed.index : 0
+    return { tracks, index, volume }
+  } catch {
+    return { tracks: [], index: 0, volume: 35 }
+  }
+}
+
+const PlayIcon = () => (
+  <svg {...iconProps} fill="currentColor" stroke="none">
+    <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" />
+  </svg>
+)
+const PauseIcon = () => (
+  <svg {...iconProps} fill="currentColor" stroke="none">
+    <rect x="6" y="5" width="4.5" height="14" rx="1.2" />
+    <rect x="13.5" y="5" width="4.5" height="14" rx="1.2" />
+  </svg>
+)
+const SkipIcon = ({ back }: { back?: boolean }) => (
+  <svg {...iconProps} fill="currentColor" stroke="none" style={back ? { transform: 'scaleX(-1)' } : undefined}>
+    <path d="M6 5.5v13a1 1 0 0 0 1.5.86l8.5-6.5a1 1 0 0 0 0-1.72L7.5 4.64A1 1 0 0 0 6 5.5Z" />
+    <rect x="17" y="5" width="2.6" height="14" rx="1.2" />
+  </svg>
+)
+const NoteIcon = () => (
+  <svg {...iconProps}>
+    <path d="M9 18V5l11-2v13" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="17" cy="16" r="3" />
+  </svg>
+)
+
+function LoungeMusic({ open, commandRef }: { open: boolean; commandRef: { current: (text: string) => boolean } }) {
+  const saved = useRef(readMusic()).current
+  const [tracks, setTracks] = useState<MusicTrack[]>(saved.tracks)
+  const [index, setIndex] = useState(saved.index)
+  const [volume, setVolume] = useState(saved.volume)
+  const [playing, setPlaying] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [input, setInput] = useState('')
+  const [note, setNote] = useState('')
+
+  const rootRef = useRef<HTMLDivElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const playerRef = useRef<any>(null)
+  const playerPromise = useRef<Promise<any> | null>(null)
+  const loadedRef = useRef(false) // has a video been loaded into the player yet?
+  const tracksRef = useRef(tracks)
+  const indexRef = useRef(index)
+  const volumeRef = useRef(volume)
+  const skipRef = useRef<(dir: 1 | -1) => void>(() => {})
+  tracksRef.current = tracks
+  indexRef.current = index
+  volumeRef.current = volume
+
+  const current: MusicTrack | undefined = tracks[index]
+
+  // remember queue + volume on this device
+  useEffect(() => {
+    try {
+      localStorage.setItem(MUSIC_KEY, JSON.stringify({ tracks, index, volume }))
+    } catch {
+      /* storage unavailable: the player still works for this session */
+    }
+  }, [tracks, index, volume])
+
+  const flash = (text: string) => {
+    setNote(text)
+    window.setTimeout(() => setNote((n) => (n === text ? '' : n)), 4000)
+  }
+
+  const ensurePlayer = useCallback((): Promise<any> => {
+    if (playerPromise.current) return playerPromise.current
+    playerPromise.current = loadYouTubeApi()
+      .then(
+        (YT) =>
+          new Promise<any>((resolve) => {
+            const host = document.createElement('div')
+            wrapRef.current?.appendChild(host)
+            const player = new YT.Player(host, {
+              width: '100%',
+              height: '100%',
+              playerVars: { playsinline: 1, rel: 0, controls: 0, disablekb: 1, modestbranding: 1 },
+              events: {
+                onReady: () => {
+                  player.setVolume(volumeRef.current)
+                  playerRef.current = player
+                  resolve(player)
+                },
+                onStateChange: (e: any) => {
+                  if (e.data === 1) setPlaying(true)
+                  else if (e.data === 2) setPlaying(false)
+                  else if (e.data === 0) {
+                    setPlaying(false)
+                    skipRef.current(1)
+                  }
+                  // swap a placeholder title for the real one once YouTube knows it
+                  if (e.data === 1 || e.data === 3) {
+                    const title: string | undefined = player.getVideoData?.()?.title
+                    const vid: string | undefined = player.getVideoData?.()?.video_id
+                    if (title && vid) {
+                      setTracks((prev) => prev.map((t) => (t.id === vid && t.title !== title ? { ...t, title } : t)))
+                    }
+                  }
+                },
+                onError: () => {
+                  flash("That video can't be played here. Skipping.")
+                  setPlaying(false)
+                  if (tracksRef.current.length > 1) skipRef.current(1)
+                },
+              },
+            })
+          }),
+      )
+      .catch((err) => {
+        playerPromise.current = null
+        flash('Music needs YouTube, and it could not be loaded.')
+        throw err
+      })
+    return playerPromise.current
+  }, [])
+
+  const playIndex = useCallback(
+    async (i: number) => {
+      const track = tracksRef.current[i]
+      if (!track) return
+      setIndex(i)
+      try {
+        const player = await ensurePlayer()
+        loadedRef.current = true
+        player.loadVideoById(track.id)
+      } catch {
+        /* flash() already told the user */
+      }
+    },
+    [ensurePlayer],
+  )
+
+  const skip = (dir: 1 | -1) => {
+    const list = tracksRef.current
+    if (!list.length) return
+    playIndex((indexRef.current + dir + list.length) % list.length)
+  }
+  skipRef.current = skip
+
+  const togglePlay = async () => {
+    if (!current) {
+      setExpanded(true)
+      return
+    }
+    if (!loadedRef.current) {
+      playIndex(index)
+      return
+    }
+    try {
+      const player = await ensurePlayer()
+      if (player.getPlayerState() === 1) player.pauseVideo()
+      else player.playVideo()
+    } catch {
+      /* flash() already told the user */
+    }
+  }
+
+  const addTrack = (track: MusicTrack, playNow = false) => {
+    const startNow = playNow || tracksRef.current.length === 0 || !loadedRef.current
+    const nextIndex = tracksRef.current.length
+    const next = [...tracksRef.current, track]
+    tracksRef.current = next
+    setTracks(next)
+    if (startNow) playIndex(nextIndex)
+    else flash('Added to the queue')
+    // fetch a proper title in the background (best effort)
+    fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${track.id}`)}&format=json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j?.title) setTracks((prev) => prev.map((t) => (t.id === track.id && t.title === track.title ? { ...t, title: j.title } : t)))
+      })
+      .catch(() => {})
+  }
+
+  // Turns "a link", "a station name" or "a song name" into a track and queues/plays it
+  const playQuery = async (query: string, playNow: boolean) => {
+    const id = parseYouTubeId(query)
+    const station = id ? undefined : findStation(query)
+    let track: MusicTrack | null = id ? { id, title: 'YouTube video' } : station ? station.track : null
+    if (!track) {
+      if (!YT_KEY) {
+        flash('Song search needs a YouTube API key. For now use /play lofi, or paste a link.')
+        return
+      }
+      flash(`Searching “${query}”…`)
+      try {
+        track = await searchYouTube(query)
+      } catch (err) {
+        flash((err as Error).message === 'quota' ? 'YouTube search limit reached for today. Paste a link instead.' : 'Search failed. Check your connection and try again.')
+        return
+      }
+      if (!track) {
+        flash(`No results for “${query}”.`)
+        return
+      }
+    }
+    addTrack(track, playNow)
+    flash(`${playNow ? 'Playing' : 'Added'}: ${track.title}`)
+  }
+
+  // Chat commands: /play song · /queue song · /pause · /resume · /skip · /back · /stop · /volume 50
+  const runCommand = (raw: string): boolean => {
+    const m = /^\/(\w+)\s*([\s\S]*)$/.exec(raw.trim())
+    if (!m) return false
+    const cmd = m[1].toLowerCase()
+    const arg = m[2].trim()
+    const player = playerRef.current
+    switch (cmd) {
+      case 'play':
+      case 'p':
+        if (arg) playQuery(arg, true)
+        else if (tracksRef.current.length && !playing) togglePlay()
+        else flash('Try /play song name')
+        return true
+      case 'queue':
+      case 'add':
+      case 'q':
+        if (arg) playQuery(arg, false)
+        else flash('Try /queue song name')
+        return true
+      case 'pause':
+        player?.pauseVideo?.()
+        return true
+      case 'resume':
+      case 'unpause':
+        if (tracksRef.current.length && !playing) togglePlay()
+        return true
+      case 'skip':
+      case 'next':
+        skip(1)
+        return true
+      case 'back':
+      case 'prev':
+      case 'previous':
+        skip(-1)
+        return true
+      case 'stop':
+        player?.stopVideo?.()
+        loadedRef.current = false
+        setPlaying(false)
+        return true
+      case 'volume':
+      case 'vol':
+      case 'v': {
+        const n = parseInt(arg, 10)
+        if (Number.isNaN(n)) flash(`Volume is ${volumeRef.current}. Try /volume 50`)
+        else {
+          changeVolume(Math.min(100, Math.max(0, n)))
+          flash(`Volume ${Math.min(100, Math.max(0, n))}`)
+        }
+        return true
+      }
+      case 'music':
+      case 'playlist':
+        setExpanded(true)
+        return true
+      case 'help':
+        flash('/play song · /queue song · /pause · /resume · /skip · /back · /stop · /volume 50')
+        return true
+      default:
+        return false // not a music command: it is sent as a normal chat message
+    }
+  }
+  commandRef.current = runCommand
+
+  const submitLink = (e: FormEvent) => {
+    e.preventDefault()
+    const text = input.trim()
+    if (!text) return
+    setInput('')
+    if (text.startsWith('/') && runCommand(text)) return
+    playQuery(text, false)
+  }
+
+  const removeTrack = (i: number) => {
+    const wasCurrent = i === indexRef.current
+    const next = tracksRef.current.filter((_, k) => k !== i)
+    tracksRef.current = next
+    setTracks(next)
+    if (!next.length) {
+      setIndex(0)
+      setPlaying(false)
+      loadedRef.current = false
+      playerRef.current?.stopVideo?.()
+      return
+    }
+    if (i < indexRef.current) setIndex(indexRef.current - 1)
+    else if (wasCurrent) {
+      const ni = Math.min(i, next.length - 1)
+      setIndex(ni)
+      if (loadedRef.current) playIndex(ni)
+    }
+  }
+
+  const changeVolume = (v: number) => {
+    setVolume(v)
+    playerRef.current?.setVolume?.(v)
+  }
+
+  // Closing the lounge pauses the music (it never restarts by itself) and folds the playlist away
+  useEffect(() => {
+    if (!open) {
+      playerRef.current?.pauseVideo?.()
+      setExpanded(false)
+    }
+  }, [open])
+
+  // Click anywhere outside the player to close the playlist
+  useEffect(() => {
+    if (!expanded) return
+    const onDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setExpanded(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [expanded])
+
+  useEffect(
+    () => () => {
+      try {
+        playerRef.current?.destroy?.()
+      } catch {
+        /* already gone */
+      }
+      playerRef.current = null
+      playerPromise.current = null
+    },
+    [],
+  )
+
+  const status = !current ? 'Add a song' : playing ? 'Now playing' : 'Paused'
+
+  const noteEl = note && (
+    <p className="lounge-music__note" role="status">
+      {note}
+    </p>
+  )
+
+  return (
+    <div className={`lounge-music${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}`} ref={rootRef}>
+      <div className="lounge-music__pill">
+        <div className="lounge-music__screen">
+          <div ref={wrapRef} className="lounge-music__frame" />
+          {!(playing || loadedRef.current) && (
+            <span className="lounge-music__ph" aria-hidden="true">
+              <NoteIcon />
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          className="lounge-music__info"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-label="Open playlist"
+        >
+          <b className="lounge-music__title">{current?.title ?? 'Lounge radio'}</b>
+          <span className="lounge-music__status">
+            {playing && (
+              <span className="lounge-music__eq" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+            )}
+            {status}
+          </span>
+        </button>
+
+        <button type="button" className="lounge-music__btn is-main" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
+          {playing ? <PauseIcon /> : <PlayIcon />}
+        </button>
+        <button
+          type="button"
+          className="lounge-music__btn lounge-music__chev"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-label={expanded ? 'Close playlist' : 'Open playlist'}
+          title="Playlist"
+        >
+          <CaretRight size={13} weight="bold" />
+          {tracks.length > 0 && <span className="lounge-music__count">{tracks.length}</span>}
+        </button>
+      </div>
+
+      {!expanded && noteEl}
+
+      {expanded && (
+        <div className="lounge-music__pop" role="dialog" aria-label="Music playlist">
+          <div className="lounge-music__now">
+            <span className="lounge-music__eyebrow">{playing ? 'Now playing' : 'Playlist'}</span>
+            <b className="lounge-music__now-title">{current?.title ?? 'Nothing queued yet'}</b>
+            <div className="lounge-music__transport">
+              <button type="button" className="lounge-music__btn" onClick={() => skip(-1)} disabled={tracks.length < 2} aria-label="Previous song">
+                <SkipIcon back />
+              </button>
+              <button type="button" className="lounge-music__btn is-main is-lg" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
+                {playing ? <PauseIcon /> : <PlayIcon />}
+              </button>
+              <button type="button" className="lounge-music__btn" onClick={() => skip(1)} disabled={tracks.length < 2} aria-label="Next song">
+                <SkipIcon />
+              </button>
+            </div>
+            <label className="lounge-music__volrow">
+              <span aria-hidden="true">{volume === 0 ? '🔇' : volume < 50 ? '🔉' : '🔊'}</span>
+              <input
+                type="range"
+                className="lounge-music__vol"
+                min={0}
+                max={100}
+                value={volume}
+                onChange={(e) => changeVolume(Number(e.target.value))}
+                aria-label="Music volume"
+                style={{ '--vol': `${volume}%` } as CSSProperties}
+              />
+              <em>{volume}</em>
+            </label>
+          </div>
+
+          <form className="lounge-music__add" onSubmit={submitLink}>
+            <input
+              type="text"
+              placeholder="Song name, link, or /play…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              autoComplete="off"
+              aria-label="Song name or YouTube link"
+            />
+            <button type="submit" disabled={!input.trim()}>
+              Add
+            </button>
+          </form>
+
+          {tracks.length === 0 && (
+            <div className="lounge-music__empty">
+              <span>Type a song name or try a station:</span>
+              <div className="lounge-music__stations">
+                {STATIONS.map((st) => (
+                  <button key={st.key} type="button" onClick={() => addTrack(st.track, true)}>
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tracks.length > 0 && (
+            <ol className="lounge-music__queue">
+              {tracks.map((t, i) => (
+                <li key={`${t.id}-${i}`} className={i === index ? 'is-current' : ''}>
+                  <button type="button" className="lounge-music__song" onClick={() => playIndex(i)} title={t.title}>
+                    <span className="lounge-music__num">{i === index && playing ? '♪' : i + 1}</span>
+                    <span className="lounge-music__song-title">{t.title}</span>
+                  </button>
+                  <button type="button" className="lounge-music__rm" onClick={() => removeTrack(i)} aria-label={`Remove ${t.title}`}>
+                    <X size={11} weight="bold" />
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {noteEl}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface DevLoungeModalProps {
   open?: boolean
   onClose?: () => void
@@ -934,6 +1552,8 @@ export default function DevLoungeModal({
   // Listeners for live duel messages (Tic-Tac-Toe / Quiz Duel). The games subscribe through `duelBus`.
   const duelListeners = useRef(new Set<(payload: any) => void>())
   const lastTypingSent = useRef(0)
+  // The music player registers its slash-command handler here (/play, /pause, ...)
+  const musicCommandRef = useRef<(text: string) => boolean>(() => false)
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   // Mention-toast bookkeeping (so old messages never trigger a toast)
   const msgsFetchedRef = useRef(false)
@@ -995,6 +1615,17 @@ export default function DevLoungeModal({
 
   // Community game (lives beside the chat)
   const [gameRefresh, setGameRefresh] = useState(0) // bumps when another member finishes a round
+
+  // Sound state
+  const [isPlayingBgm, setIsPlayingBgm] = useState(false)
+
+  // Handle Background Music Toggle
+  const handleBgmToggle = () => {
+    sounds.initializeAudio() // Initialize audio context on user interaction
+    const playingState = sounds.toggleBgm()
+    setIsPlayingBgm(playingState)
+    console.log('BGM toggled, playing:', playingState)
+  }
 
   // Chats: 'global' or a conversation id (group / direct message)
   const [activeChat, setActiveChat] = useState<string>('global')
@@ -1187,7 +1818,11 @@ export default function DevLoungeModal({
       const chatKey = convKey ?? 'global'
       const elsewhere = chatKey !== activeChatRef.current
       if (elsewhere) setUnread((u) => ({ ...u, [chatKey]: (u[chatKey] ?? 0) + 1 }))
-      if (mentionRe?.test(m.text ?? '')) showToast(`${m.author} mentioned you`)
+      const isMention = !!mentionRe?.test(m.text ?? '')
+      const isDm = conv?.kind === 'dm'
+      // Sound: a direct message to me, or an @mention of me (global chat or a group)
+      if (isMention || isDm) playPing()
+      if (isMention) showToast(`${m.author} mentioned you`)
       else if (conv && elsewhere) showToast(conv.kind === 'dm' ? `${m.author} sent you a message` : `${m.author} in ${conv.name}`)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1196,7 +1831,7 @@ export default function DevLoungeModal({
   useEffect(() => {
     const formattedStories: StoryUser[] = rawProfiles.map((p: any) => {
       const isSelf = p.device_id === deviceId
-      const timestamp = p.created_at || new Date().toISOString()
+      const timestamp = p.note_updated_at || p.created_at || new Date().toISOString()
       if (isSelf) {
         if (!skipNextTimestampUpdate.current) {
           setUserNoteUpdatedAt(timestamp)
@@ -1209,6 +1844,7 @@ export default function DevLoungeModal({
         updatedAt: timestamp,
         time: formatTimeAgo(timestamp),
         note: p.note,
+        noteAt: p.note_updated_at || p.created_at || null,
         avatarSeed: `${p.name}-${p.avatar_salt}`,
         isMe: isSelf,
       }
@@ -1444,7 +2080,7 @@ export default function DevLoungeModal({
     } else {
       setUserName(data.name)
       setUserNote(data.note || '')
-      setUserNoteUpdatedAt(data.created_at || new Date().toISOString())
+      setUserNoteUpdatedAt(data.note_updated_at || data.created_at || new Date().toISOString())
       setAvatarSalt(data.avatar_salt)
       setNeedsRegistration(false)
       fetchData()
@@ -1612,7 +2248,7 @@ export default function DevLoungeModal({
 
     const { error } = await supabase
       .from('lounge_profiles')
-      .update({ note: cleaned })
+      .update({ note: cleaned, note_updated_at: nowIso })
       .eq('device_id', deviceId)
 
     if (error) {
@@ -1635,7 +2271,7 @@ export default function DevLoungeModal({
 
     const { error } = await supabase
       .from('lounge_profiles')
-      .update({ note: '' })
+      .update({ note: '', note_updated_at: nowIso })
       .eq('device_id', deviceId)
 
     if (error) {
@@ -1849,6 +2485,18 @@ export default function DevLoungeModal({
       showToast('Pick a name first to start chatting.')
       return
     }
+
+    // Music commands (/play lofi, /skip, ...) run the player instead of sending a message
+    if (!editingId && textToSend.startsWith('/') && musicCommandRef.current(textToSend)) {
+      setInputText('')
+      setMentionQuery(null)
+      lastTypingSent.current = 0
+      sendTyping(false)
+      return
+    }
+
+    sounds.initializeAudio() // Initialize audio context on user interaction
+    sounds.playSfx('click')
 
     if (editingId) {
       await submitEdit(editingId, textToSend)
@@ -2179,7 +2827,9 @@ export default function DevLoungeModal({
                 </div>
 
                 <div className="lounge-note-modal__name">{userName}</div>
-                <div className="lounge-note-modal__time-label">{formatTimeAgo(userNoteUpdatedAt)}</div>
+                <div className="lounge-note-modal__time-label">
+                  {isNoteLive(userNote, userNoteUpdatedAt) ? formatTimeAgo(userNoteUpdatedAt) : ''}
+                </div>
                 <div className="lounge-note-modal__count">{noteModalInput.length}/20</div>
               </div>
 
@@ -2313,6 +2963,16 @@ export default function DevLoungeModal({
             </div>
           </div>
           <div className="lounge-header__right">
+            <LoungeMusic open={!!open} commandRef={musicCommandRef} />
+            <button
+              type="button"
+              className="lounge-bgm-toggle"
+              onClick={handleBgmToggle}
+              aria-label={isPlayingBgm ? 'Turn off background music' : 'Turn on background music'}
+              title={isPlayingBgm ? 'BGM: ON' : 'BGM: OFF'}
+            >
+              {isPlayingBgm ? '🔊' : '🔇'}
+            </button>
             <span className={`lounge-live-badge${channelReady ? '' : ' is-offline'}`} title={onlineTitle} aria-live="polite">
               <span className="lounge-live-dot" />
               {channelReady ? (
@@ -2334,10 +2994,11 @@ export default function DevLoungeModal({
         <section className="lounge-chat" aria-label="Chat">
         <div className="lounge-stories" ref={storiesRef}>
           {stories.map((s) => {
-            const note = s.isMe ? userNote : s.note
-            const hasNote = !!note
+            const noteAt = s.isMe ? userNoteUpdatedAt : s.noteAt
+            const hasNote = isNoteLive(s.isMe ? userNote : s.note, noteAt)
+            const note = hasNote ? (s.isMe ? userNote : s.note) : ''
             const openNote = () => {
-              setNoteModalInput(userNote)
+              setNoteModalInput(note)
               setIsNoteModalOpen(true)
             }
             return (
@@ -2369,7 +3030,7 @@ export default function DevLoungeModal({
                   )}
                 </div>
                 <span className="lounge-story-name">{s.isMe ? 'You' : s.name}</span>
-                <span className="lounge-story-time">{s.isMe ? formatTimeAgo(userNoteUpdatedAt) : s.time}</span>
+                <span className="lounge-story-time">{hasNote ? formatTimeAgo(noteAt ?? undefined) : ''}</span>
               </div>
             )
           })}

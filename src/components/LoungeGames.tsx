@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
+import { sounds } from '@/utils/soundManager'
 
 /* ===================================================================
    Dev Lounge arcade
@@ -133,7 +134,7 @@ const isTypingTarget = (t: EventTarget | null) =>
 function Avatar({ seed, size = 28 }: { seed: string; size?: number }) {
   return (
     <img
-      src={`https://api.dicebear.com/10.x/micah/svg?seed=${encodeURIComponent(seed)}`}
+      src={`https://api.dicebear.com/10.x/lorelei/svg?seed=${encodeURIComponent(seed)}`}
       alt=""
       width={size}
       height={size}
@@ -541,6 +542,7 @@ function Arcade(props: ArcadeProps) {
   const stableFinish = useCallback((r: ArcadeResult) => finishRef.current(r), [])
 
   const start = () => {
+    sounds.initializeAudio() // Initialize audio context on user interaction
     if (daily) {
       const saved = readLS(dailyKey)
       if (saved) {
@@ -554,6 +556,7 @@ function Arcade(props: ArcadeProps) {
         }
       }
     }
+    sounds.playSfx('start')
     setRun((n) => n + 1)
     setPhase('playing')
   }
@@ -730,8 +733,10 @@ function QuizRunner<T extends QuizItem>(props: QuizRunnerProps<T>) {
       t.correct += 1
       // 100 for being right + up to 50 for speed + a small streak bonus (same formula as Dev Trivia)
       gained = 100 + Math.round((left / seconds) * 50) + Math.min(t.streak - 1, 5) * 10
+      sounds.playSfx('correct')
     } else {
       t.streak = 0
+      sounds.playSfx('wrong')
     }
     t.best = Math.max(t.best, t.streak)
     t.score += gained
@@ -747,6 +752,10 @@ function QuizRunner<T extends QuizItem>(props: QuizRunnerProps<T>) {
     advance.current = setTimeout(
       () => {
         if (index + 1 >= items.length) {
+          // Play win sound if score is decent
+          if (t.correct >= items.length * 0.5) {
+            sounds.playSfx('win')
+          }
           doneRef.current({ score: t.score, correct: t.correct, bestStreak: t.best, total: items.length, log: t.log })
         } else {
           locked.current = false
@@ -765,6 +774,10 @@ function QuizRunner<T extends QuizItem>(props: QuizRunnerProps<T>) {
     if (picked !== null) return
     deadline.current = Date.now() + seconds * 1000
     setTimeLeft(seconds)
+    // Play start sound on first question
+    if (index === 0) {
+      sounds.playSfx('start')
+    }
     const timer = setInterval(() => {
       const left = Math.max(0, (deadline.current - Date.now()) / 1000)
       setTimeLeft(left)
@@ -1068,7 +1081,12 @@ function HiLoRound({ finish }: { finish: (r: ArcadeResult) => void }) {
     const ok = higher ? next.v > current.v : next.v < current.v
     setReveal(ok ? 'right' : 'wrong')
     const newStreak = ok ? streak + 1 : streak
-    if (ok) setStreak(newStreak)
+    if (ok) {
+      setStreak(newStreak)
+      sounds.playSfx('correct')
+    } else {
+      sounds.playSfx('wrong')
+    }
     timer.current = setTimeout(
       () => {
         if (!ok) {
@@ -1205,6 +1223,7 @@ function TypingRound({ finish }: { finish: (r: ArcadeResult) => void }) {
   // Clock only starts on the first keystroke
   useEffect(() => {
     if (!started) return
+    sounds.playSfx('start')
     const timer = setInterval(() => {
       const elapsed = Date.now() - started
       const remaining = Math.max(0, TYPING_SECONDS - elapsed / 1000)
@@ -1393,6 +1412,7 @@ function WordRound({ finish }: { finish: (r: ArcadeResult) => void }) {
     if (current.length < 5) {
       setMsg('Not enough letters')
       setShake(true)
+      sounds.playSfx('wrong')
       setTimeout(() => setShake(false), 400)
       return
     }
@@ -1401,6 +1421,16 @@ function WordRound({ finish }: { finish: (r: ArcadeResult) => void }) {
     writeLS(storeKey, JSON.stringify(next))
     setCurrent('')
     setMsg('')
+    // Play correct sound if the guess has at least one correct letter
+    const marks = scoreGuess(current, answer)
+    if (marks.some(m => m === 'hit' || m === 'near')) {
+      sounds.playSfx('correct')
+    } else {
+      sounds.playSfx('wrong')
+    }
+    if (next.includes(answer)) {
+      sounds.playSfx('win')
+    }
     if (next.includes(answer) || next.length >= WORD_TRIES) conclude(next)
   }
 
@@ -1559,6 +1589,7 @@ function WouldYouRather({ ctx }: { ctx: GameCtx }) {
 
   const vote = async (id: string, side: Side) => {
     if (mine[id] || !ctx.userName) return
+    sounds.playSfx('click')
     const nextMine = { ...mine, [id]: side }
     setMine(nextMine)
     writeLS(mineKey, JSON.stringify(nextMine))
@@ -1708,13 +1739,18 @@ function TicTacToe({ ctx, bus, match, onWin, onLeave }: MatchProps) {
   useEffect(() => {
     if (result && result !== 'draw' && result.mark === me && !wonRef.current) {
       wonRef.current = true
+      sounds.playSfx('win')
       onWin()
+    } else if (result === 'draw' && !wonRef.current) {
+      wonRef.current = true
+      sounds.playSfx('correct')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result])
 
   const play = (i: number) => {
     if (result || gone || state.turn !== me || state.cells[i]) return
+    sounds.playSfx('click')
     apply(i, me)
     bus.send({ t: 'move', to: match.opp.id, matchId: match.id, cell: i })
   }
@@ -1827,6 +1863,7 @@ function QuizDuel({ ctx, bus, match, bank, onWin, onLeave }: MatchProps & { bank
   useEffect(() => {
     if (iWon && !wonRef.current) {
       wonRef.current = true
+      sounds.playSfx('win')
       onWin()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2729,9 +2766,18 @@ function LastLetterBotRound({ ctx, finish }: { ctx: GameCtx; finish: (r: ArcadeR
   const submit = async () => {
     if (done.current || busy.current || turnRef.current !== 'me') return
     const word = input.trim().toLowerCase()
-    if (word.length < LL_MIN_LEN) return reject(`Use at least ${LL_MIN_LEN} letters.`)
-    if (word[0] !== letter) return reject(`It has to start with ${letter.toUpperCase()}.`)
-    if (used.current.has(word)) return reject('That word is already in the chain.')
+    if (word.length < LL_MIN_LEN) {
+      sounds.playSfx('wrong')
+      return reject(`Use at least ${LL_MIN_LEN} letters.`)
+    }
+    if (word[0] !== letter) {
+      sounds.playSfx('wrong')
+      return reject(`It has to start with ${letter.toUpperCase()}.`)
+    }
+    if (used.current.has(word)) {
+      sounds.playSfx('wrong')
+      return reject('That word is already in the chain.')
+    }
 
     // The timer pauses while the dictionary looks the word up, so a slow connection never costs a life
     busy.current = true
@@ -2742,6 +2788,11 @@ function LastLetterBotRound({ ctx, finish }: { ctx: GameCtx; finish: (r: ArcadeR
     deadline.current += Date.now() - t0
     busy.current = false
     setChecking(false)
+    if (ok) {
+      sounds.playSfx('correct')
+    } else {
+      sounds.playSfx('wrong')
+    }
     if (!ok) return reject(`"${word}" isn't in the dictionary. Try another!`)
 
     const left = Math.max(0, (deadline.current - Date.now()) / 1000)
@@ -3026,6 +3077,7 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
     dropLobby(r.id)
     setNotice('')
     setChecking(false)
+    sounds.playSfx('start')
     onEnterRef.current()
   }
 
@@ -3061,6 +3113,8 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
     const m = meRef.current
     setTyped({})
     const who = ev.id === m.id ? 'You are' : `${g.players.find((p) => p.id === ev.id)?.name ?? 'Someone'} is`
+    // Play wrong sound when someone gets eliminated
+    sounds.playSfx('wrong')
     setGame({
       ...g,
       alive: g.alive.filter((x) => x !== ev.id),
@@ -3073,7 +3127,10 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
     })
     setNotice('')
     setChecking(false)
-    if (ev.winner === m.id) recordWin(g.roomId)
+    if (ev.winner === m.id) {
+      sounds.playSfx('win')
+      recordWin(g.roomId)
+    }
   }
 
   /* ----- host only: run the match ----- */
@@ -3113,6 +3170,10 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
       if (h.botTimer) clearTimeout(h.botTimer)
       h.turnTimer = null
       h.botTimer = null
+      // Play win sound if I'm the winner
+      if (winner === meRef.current.id) {
+        sounds.playSfx('win')
+      }
     } else if (wasTurn) {
       armTurn(turnMs)
       maybeBotTurn()
@@ -3508,17 +3569,31 @@ function useLastLetter(ctx: GameCtx, bus: DuelBus, open: boolean, onEnter: () =>
     const m = meRef.current
     if (!g || g.winner || g.turn !== m.id || checking) return
     const word = raw.trim().toLowerCase()
-    if (word.length < LL_MIN_LEN) return fail(`Use at least ${LL_MIN_LEN} letters.`)
-    if (word[0] !== g.letter) return fail(`It has to start with ${g.letter.toUpperCase()}.`)
-    if (g.chain.some((e) => e.by && e.word === word)) return fail('That word is already in the chain.')
+    if (word.length < LL_MIN_LEN) {
+      sounds.playSfx('wrong')
+      return fail(`Use at least ${LL_MIN_LEN} letters.`)
+    }
+    if (word[0] !== g.letter) {
+      sounds.playSfx('wrong')
+      return fail(`It has to start with ${g.letter.toUpperCase()}.`)
+    }
+    if (g.chain.some((e) => e.by && e.word === word)) {
+      sounds.playSfx('wrong')
+      return fail('That word is already in the chain.')
+    }
     setNotice('')
     setChecking(true)
     if (iAmHost()) {
       await hostWord(m.id, word)
       setChecking(false)
+      sounds.playSfx('correct')
     } else {
       // Check on this device first (usually already cached from typing), then the host only has to accept it
-      if (!(await llIsWord(word))) return fail(`"${word}" isn't in the dictionary. Try another!`)
+      if (!(await llIsWord(word))) {
+        sounds.playSfx('wrong')
+        return fail(`"${word}" isn't in the dictionary. Try another!`)
+      }
+      sounds.playSfx('correct')
       send({ t: 'll_word', roomId: g.roomId, word, v: 1 })
       setTimeout(() => setChecking(false), 9000) // safety net if the host never answers
     }
