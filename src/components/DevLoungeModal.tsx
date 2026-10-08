@@ -452,8 +452,14 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 // Notes disappear 24 hours after they were posted
 const NOTE_TTL_MS = DAY_MS
+const noteAgeMs = (postedAt?: string | null) => {
+  if (!postedAt) return Infinity
+  const t = new Date(postedAt).getTime()
+  if (Number.isNaN(t)) return Infinity
+  return Math.max(0, Date.now() - t) // never negative if another device's clock runs a bit ahead
+}
 const isNoteLive = (note?: string | null, postedAt?: string | null) =>
-  !!note && !!postedAt && Date.now() - new Date(postedAt).getTime() < NOTE_TTL_MS
+  !!note && !!postedAt && noteAgeMs(postedAt) < NOTE_TTL_MS
 
 const MANILA_OFFSET = 8 * 60 * 60 * 1000 // UTC+8
 
@@ -1999,7 +2005,7 @@ export default function DevLoungeModal({
   const [deviceId, setDeviceId] = useState<string>('')
   const [userName, setUserName] = useState<string>('')
   const [userNote, setUserNote] = useState<string>('')
-  const [userNoteUpdatedAt, setUserNoteUpdatedAt] = useState<string>(new Date().toISOString())
+  const [userNoteUpdatedAt, setUserNoteUpdatedAt] = useState<string>('')
   const [avatarSalt, setAvatarSalt] = useState<string>('default')
 
   // Onboarding & Modals
@@ -2246,8 +2252,10 @@ export default function DevLoungeModal({
   // Format helper
   const formatTimeAgo = (dateString?: string) => {
     if (!dateString) return 'just now'
-    const diffMins = Math.floor((new Date().getTime() - new Date(dateString).getTime()) / 60000)
-    if (diffMins < 1) return 'just now'
+    const diffSecs = Math.floor(noteAgeMs(dateString) / 1000)
+    if (diffSecs < 10) return 'just now'
+    if (diffSecs < 60) return `${diffSecs}s ago`
+    const diffMins = Math.floor(diffSecs / 60)
     if (diffMins === 1) return '1m ago'
     if (diffMins < 60) return `${diffMins}m ago`
     const diffHours = Math.floor(diffMins / 60)
@@ -2257,9 +2265,35 @@ export default function DevLoungeModal({
 
   // Live ticker for time strings
   const [, setTick] = useState(0)
+  const noteTimesRef = useRef<string[]>([])
   useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 10000)
-    return () => clearInterval(timer)
+    let timer: ReturnType<typeof setTimeout>
+    const schedule = () => {
+      // youngest live note decides how often labels must refresh; also wake exactly when the next note expires
+      let delay = 10000
+      for (const at of noteTimesRef.current) {
+        const age = noteAgeMs(at)
+        if (age >= NOTE_TTL_MS) continue
+        if (age < 60000) delay = Math.min(delay, 1000)
+        delay = Math.min(delay, Math.max(250, NOTE_TTL_MS - age + 50))
+      }
+      timer = setTimeout(() => {
+        setTick((t) => t + 1)
+        schedule()
+      }, delay)
+    }
+    schedule()
+    // background tabs throttle timers, so refresh the moment the tab is looked at again
+    const wake = () => {
+      if (document.visibilityState === 'visible') setTick((t) => t + 1)
+    }
+    window.addEventListener('focus', wake)
+    document.addEventListener('visibilitychange', wake)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('focus', wake)
+      document.removeEventListener('visibilitychange', wake)
+    }
   }, [])
 
   useEffect(() => {
@@ -2341,7 +2375,8 @@ export default function DevLoungeModal({
   useEffect(() => {
     const formattedStories: StoryUser[] = rawProfiles.map((p: any) => {
       const isSelf = p.device_id === deviceId
-      const timestamp = p.note_updated_at || p.created_at || new Date().toISOString()
+      // The note's age comes ONLY from when the note was posted, never from when the account was created
+      const timestamp = p.note_updated_at || ''
       if (isSelf) {
         if (!skipNextTimestampUpdate.current) {
           setUserNoteUpdatedAt(timestamp)
@@ -2353,9 +2388,9 @@ export default function DevLoungeModal({
         deviceId: p.device_id,
         name: p.name,
         updatedAt: timestamp,
-        time: formatTimeAgo(timestamp),
+        time: formatTimeAgo(timestamp || undefined),
         note: p.note,
-        noteAt: p.note_updated_at || p.created_at || null,
+        noteAt: p.note_updated_at || null,
         avatarSeed: `${p.name}-${p.avatar_salt}`,
         isMe: isSelf,
       }
@@ -2363,6 +2398,7 @@ export default function DevLoungeModal({
 
     // Always put the current user first
     formattedStories.sort((a, b) => (a.isMe ? -1 : b.isMe ? 1 : 0))
+    noteTimesRef.current = formattedStories.filter((x) => x.note && x.noteAt).map((x) => x.noteAt as string)
 
     setStories(formattedStories)
   }, [rawProfiles, deviceId])
@@ -2666,7 +2702,7 @@ export default function DevLoungeModal({
     } else {
       setUserName(data.name)
       setUserNote(data.note || '')
-      setUserNoteUpdatedAt(data.note_updated_at || data.created_at || new Date().toISOString())
+      setUserNoteUpdatedAt(data.note_updated_at || '')
       setAvatarSalt(data.avatar_salt)
       setNeedsRegistration(false)
       fetchData()
