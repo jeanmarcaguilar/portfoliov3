@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode, type ChangeEvent, type FormEvent, type KeyboardEvent, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { Fragment, useState, useRef, useEffect, useCallback, useMemo, type ReactNode, type ChangeEvent, type FormEvent, type KeyboardEvent, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { X, CaretRight, Plus } from '@/components/slab'
 import { useDismiss, type DismissReason } from '@/hooks/useDismiss'
@@ -128,6 +128,7 @@ interface Message {
   text: string
   avatarSeed: string
   isMe?: boolean
+  authorId: string // the sender's device id (used for group nicknames)
   replyTo?: string | null
   edited?: boolean
   reactions: Reaction[]
@@ -155,7 +156,21 @@ interface Conversation {
   otherId: string // DMs: the other person's device id
   members: string[]
   lastAt: string
+  createdBy: string // the group's admin (whoever created it)
+  pinned: boolean // pinned by me: sits first in my chat row (max 2, stored on this device)
+  requests: JoinRequest[] // people a member wants to add, waiting for an admin to approve
+  nicknames: Record<string, string> // per-group nicknames (device id -> nickname)
 }
+
+// "member X wants to add Y": an admin accepts or rejects it
+interface JoinRequest {
+  deviceId: string // the person to be added
+  by: string // the member who asked
+  at: string
+}
+
+const PINNED_CONVS_KEY = 'lounge_pinned_chats'
+const MAX_PINNED_CHATS = 2
 
 const GROUP_ICONS = ['💬', '🚀', '🎮', '☕', '🔥', '🎧', '🌈', '🍕', '🐱', '⚡', '🎯', '🧠']
 const GROUP_TINTS = [
@@ -204,6 +219,13 @@ const ReplyIcon = () => (
     <path d="M4 9h10a6 6 0 0 1 6 6v3" />
   </svg>
 )
+const PinIcon = () => (
+  <svg {...iconProps}>
+    <path d="M12 17v5" />
+    <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3Z" />
+  </svg>
+)
+
 const PencilIcon = () => (
   <svg {...iconProps}>
     <path d="M12 20h9" />
@@ -2085,6 +2107,75 @@ export default function DevLoungeModal({
   const [convsLoaded, setConvsLoaded] = useState(false)
   const [unread, setUnread] = useState<Record<string, number>>({})
   const [chatSheet, setChatSheet] = useState<null | 'group' | 'dm'>(null)
+  const [pinnedConvs, setPinnedConvs] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(PINNED_CONVS_KEY) ?? '[]')
+      return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, MAX_PINNED_CHATS) : []
+    } catch {
+      return []
+    }
+  })
+  const [viewNoteId, setViewNoteId] = useState<string | null>(null) // someone's note opened full size
+  // Reactions on notes (table lounge_note_reactions, see lounge_note_reactions.sql)
+  const [rawNoteReactions, setRawNoteReactions] = useState<any[]>([])
+  const noteTime = (at?: string | null) => (at ? new Date(at).getTime() : NaN)
+  const noteReactionsFor = (ownerId: string, at?: string | null) => {
+    const t = noteTime(at)
+    const grouped = new Map<string, { emoji: string; count: number; mine: boolean; names: string[] }>()
+    if (Number.isNaN(t)) return []
+    rawNoteReactions
+      .filter((r) => r.note_owner === ownerId && noteTime(r.note_at) === t)
+      .forEach((r) => {
+        const g = grouped.get(r.emoji) ?? { emoji: r.emoji as string, count: 0, mine: false, names: [] as string[] }
+        const mine = r.device_id === deviceId
+        g.count += 1
+        if (mine) g.mine = true
+        g.names.push(mine ? 'You' : memberByDevice.get(r.device_id)?.name ?? 'Someone')
+        grouped.set(r.emoji, g)
+      })
+    return Array.from(grouped.values())
+  }
+  const toggleNoteReaction = async (ownerId: string, at: string | null | undefined, emoji: string) => {
+    if (!deviceId || !at) return
+    const noteAtIso = new Date(at).toISOString()
+    const t = noteTime(noteAtIso)
+    const existing = rawNoteReactions.find(
+      (r) => r.note_owner === ownerId && noteTime(r.note_at) === t && r.device_id === deviceId && r.emoji === emoji,
+    )
+    if (existing) {
+      setRawNoteReactions((prev) => prev.filter((r) => r !== existing))
+      const { error } = await supabase
+        .from('lounge_note_reactions')
+        .delete()
+        .eq('note_owner', ownerId)
+        .eq('device_id', deviceId)
+        .eq('emoji', emoji)
+        .eq('note_at', existing.note_at)
+      if (error) showToast(`Couldn't remove reaction: ${error.message}`)
+    } else {
+      const row = { note_owner: ownerId, note_at: noteAtIso, device_id: deviceId, emoji }
+      setRawNoteReactions((prev) => [...prev, row])
+      const { error } = await supabase.from('lounge_note_reactions').insert([row])
+      if (error) {
+        setRawNoteReactions((prev) => prev.filter((r) => r !== row))
+        showToast(
+          /lounge_note_reactions/.test(error.message) || (error as any).code === '42P01'
+            ? 'Note reactions need lounge_note_reactions.sql run in Supabase first.'
+            : `Couldn't add reaction: ${error.message}`,
+        )
+      }
+    }
+    fetchData()
+  }
+  const [peopleOpen, setPeopleOpen] = useState(false) // who's online / offline list
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false) // a group's members / admin panel
+  const [groupInfoView, setGroupInfoView] = useState<'list' | 'add'>('list')
+  const [addPick, setAddPick] = useState<string[]>([])
+  const [addQuery, setAddQuery] = useState('')
+  const [kickConfirm, setKickConfirm] = useState<string | null>(null)
+  const [optionsFor, setOptionsFor] = useState<string | null>(null) // member whose 3-dot options are open
+  const [nickFor, setNickFor] = useState<string | null>(null) // member whose nickname is being edited
+  const [nickInput, setNickInput] = useState('')
   const [groupName, setGroupName] = useState('')
   const [groupIcon, setGroupIcon] = useState(GROUP_ICONS[0])
   const [groupPick, setGroupPick] = useState<string[]>([])
@@ -2172,10 +2263,21 @@ export default function DevLoungeModal({
           otherId,
           members: c.members,
           lastAt: lastAt.get(c.id) ?? c.created_at ?? '',
+          pinned: pinnedConvs.includes(c.id),
+          createdBy: c.created_by ?? c.members[0] ?? '',
+          requests: Array.isArray(c.join_requests)
+            ? c.join_requests.filter((r: any) => r && typeof r.deviceId === 'string' && !c.members.includes(r.deviceId))
+            : [],
+          nicknames: c.nicknames && typeof c.nicknames === 'object' && !Array.isArray(c.nicknames) ? c.nicknames : {},
         }
       })
-      .sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime())
-  }, [rawConvs, rawMessages, deviceId, memberByDevice])
+      .sort((a, b) => {
+        // pinned chats first (in the order they were pinned), then the most recent
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+        if (a.pinned && b.pinned) return pinnedConvs.indexOf(a.id) - pinnedConvs.indexOf(b.id)
+        return new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()
+      })
+  }, [rawConvs, rawMessages, deviceId, memberByDevice, pinnedConvs])
   conversationsRef.current = conversations
   const activeConv = activeChat === 'global' ? null : conversations.find((c) => c.id === activeChat) ?? null
   // the open group's own music player is shown only when this person turned it on (button in the group header)
@@ -2323,6 +2425,7 @@ export default function DevLoungeModal({
       return {
         id: m.id,
         author: m.author,
+        authorId: m.device_id ?? '',
         location: m.location,
         createdAt: m.created_at,
         time: formatTimeAgo(m.created_at),
@@ -2582,6 +2685,10 @@ export default function DevLoungeModal({
         .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_messages' }, applyMessageChange)
         // Reactions too — counts and "who reacted" update live.
         .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_reactions' }, applyReactionChange)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_note_reactions' }, () => {
+          realtimeAliveRef.current = true
+          fetchData()
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_profiles' }, () => {
           realtimeAliveRef.current = true
           fetchData()
@@ -2715,7 +2822,7 @@ export default function DevLoungeModal({
     lastFetchAt.current = Date.now()
 
     const meId = deviceIdRef.current || localStorage.getItem('lounge_device_id') || ''
-    const [msgRes, profileRes, memberRes, reactionRes, convRes]: any[] = await Promise.all([
+    const [msgRes, profileRes, memberRes, reactionRes, convRes, noteReactRes]: any[] = await Promise.all([
       supabase.from('lounge_messages').select('*').order('created_at', { ascending: true }),
       supabase.from('lounge_profiles').select('*').order('created_at', { ascending: false }).limit(10),
       // Full member list (the stories rail only keeps the 10 newest) — used for @mentions & reaction names
@@ -2723,6 +2830,8 @@ export default function DevLoungeModal({
       supabase.from('lounge_reactions').select('*'),
       // Group chats and DMs I'm in (quietly empty if lounge_chats.sql hasn't been run yet)
       meId ? supabase.from('lounge_conversations').select('*').contains('members', [meId]) : Promise.resolve({ data: null }),
+      // Reactions on notes (quietly empty if lounge_note_reactions.sql hasn't been run yet)
+      supabase.from('lounge_note_reactions').select('*'),
     ])
 
     // A newer fetch has started — this response is stale
@@ -2748,6 +2857,7 @@ export default function DevLoungeModal({
       setRawMessages(msgRes.data)
     }
     if (reactionRes.data) setRawReactions(reactionRes.data)
+    if (noteReactRes?.data) setRawNoteReactions(noteReactRes.data)
     if (convRes?.data) {
       setRawConvs(convRes.data)
       setConvsLoaded(true)
@@ -2996,9 +3106,6 @@ export default function DevLoungeModal({
     if (groupChReadyRef.current) void groupChRef.current?.track({ name: userNameRef.current, music: myGroupMusic })
   }, [myGroupMusic])
   const onlineIds = useMemo(() => new Set(onlineList.map((m) => m.id)), [onlineList])
-  const onlineTitle = onlineList.length
-    ? `Online now: ${onlineList.map((m) => (m.id === deviceId ? 'You' : m.name)).join(', ')}`
-    : undefined
   const typerNames = Object.values(typers)
   const typingLabel =
     typerNames.length === 0
@@ -3090,6 +3197,20 @@ export default function DevLoungeModal({
     setPickerFor(null)
     setActiveMsgId(null)
     setTimeout(() => inputRef.current?.focus(), 0)
+  }
+
+  const togglePinChat = (id: string) => {
+    if (!pinnedConvs.includes(id) && pinnedConvs.filter((x) => conversationsRef.current.some((c) => c.id === x)).length >= MAX_PINNED_CHATS) {
+      showToast(`You can pin up to ${MAX_PINNED_CHATS} chats. Unpin one first.`)
+      return
+    }
+    const next = pinnedConvs.includes(id) ? pinnedConvs.filter((x) => x !== id) : [...pinnedConvs, id]
+    setPinnedConvs(next)
+    try {
+      localStorage.setItem(PINNED_CONVS_KEY, JSON.stringify(next))
+    } catch {
+      /* storage unavailable: the pin lasts for this session */
+    }
   }
 
   const submitEdit = async (id: string, newText: string) => {
@@ -3423,6 +3544,226 @@ export default function DevLoungeModal({
     switchChat(id)
   }
 
+  const peopleList = (() => {
+    const map = new Map<string, LoungeMember>()
+    allMembers.forEach((m) => map.set(m.deviceId, m))
+    if (deviceId && userName && !map.has(deviceId)) map.set(deviceId, { deviceId, name: userName, avatarSeed: `${userName}-${avatarSalt}` })
+    const rows = Array.from(map.values()).map((m) => ({ ...m, isOnline: onlineIds.has(m.deviceId), isMe: m.deviceId === deviceId }))
+    return rows.sort((a, b) => Number(b.isOnline) - Number(a.isOnline) || a.name.localeCompare(b.name))
+  })()
+  // ---------- group members: admin, add, kick, approval requests ----------
+  const groupInfo = groupInfoOpen && activeConv && activeConv.kind === 'group' ? activeConv : null
+  const iAmAdmin = !!groupInfo && groupInfo.createdBy === deviceId
+  const nameOf = (id: string) => (id === deviceId ? 'You' : memberByDevice.get(id)?.name ?? 'Member')
+  // In a group a nickname wins; without one the person's username shows.
+  const nickIn = (conv: Conversation | null | undefined, id: string) => (conv && conv.kind === 'group' ? (conv.nicknames[id] ?? '').trim() : '')
+  const shownName = (id: string, fallback: string) => nickIn(activeConv, id) || fallback
+  const saveNickname = async (conv: Conversation, id: string) => {
+    const nick = nickInput.trim().replace(/\s+/g, ' ').slice(0, 20)
+    if (id !== deviceId && conv.createdBy !== deviceId) return // you set your own; the admin can set anyone's
+    const next = { ...conv.nicknames }
+    if (nick) next[id] = nick
+    else delete next[id]
+    setNickFor(null)
+    const ok = await updateConv(conv.id, { nicknames: next })
+    if (ok) showToast(nick ? 'Nickname saved' : 'Nickname reset to the username')
+  }
+  const closeGroupInfo = () => {
+    setOptionsFor(null)
+    setNickFor(null)
+    setGroupInfoOpen(false)
+    setGroupInfoView('list')
+    setAddPick([])
+    setAddQuery('')
+    setKickConfirm(null)
+  }
+  const updateConv = async (id: string, patch: Record<string, unknown>) => {
+    beginWrite()
+    const { data, error } = await supabase.from('lounge_conversations').update(patch).eq('id', id).select('id')
+    endWrite()
+    if (error) {
+      showToast(chatsNotSetUp(error) ? 'Run lounge_group_admin.sql in Supabase first.' : `Couldn't update the group: ${error.message}`)
+      return false
+    }
+    if (!data || data.length === 0) {
+      showToast('Not allowed. Check the update policy on lounge_conversations.')
+      return false
+    }
+    setRawConvs((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+    fetchData()
+    return true
+  }
+  const kickMember = async (conv: Conversation, id: string) => {
+    if (conv.createdBy !== deviceId || id === conv.createdBy) return
+    setKickConfirm(null)
+    const ok = await updateConv(conv.id, { members: conv.members.filter((m) => m !== id) })
+    if (ok) showToast(`${nameOf(id)} was removed from ${conv.name}`)
+  }
+  const removeRequest = (conv: Conversation, id: string) => conv.requests.filter((r) => r.deviceId !== id)
+  const approveRequest = async (conv: Conversation, id: string) => {
+    if (conv.createdBy !== deviceId) return
+    const members = conv.members.includes(id) ? conv.members : [...conv.members, id]
+    await updateConv(conv.id, { members, join_requests: removeRequest(conv, id) })
+  }
+  const rejectRequest = async (conv: Conversation, id: string) => {
+    if (conv.createdBy !== deviceId) return
+    await updateConv(conv.id, { join_requests: removeRequest(conv, id) })
+  }
+  const submitAddMembers = async (conv: Conversation) => {
+    if (!deviceId || addPick.length === 0) return
+    const fresh = addPick.filter((id) => !conv.members.includes(id))
+    if (fresh.length === 0) return
+    if (conv.createdBy === deviceId) {
+      // the admin adds people straight away
+      const ok = await updateConv(conv.id, {
+        members: Array.from(new Set([...conv.members, ...fresh])),
+        join_requests: conv.requests.filter((r) => !fresh.includes(r.deviceId)),
+      })
+      if (ok) showToast(`Added ${fresh.length} ${fresh.length === 1 ? 'member' : 'members'}`)
+    } else {
+      // a member can only ask: the admin has to approve
+      const at = new Date().toISOString()
+      const asked = fresh.filter((id) => !conv.requests.some((r) => r.deviceId === id)).map((id): JoinRequest => ({ deviceId: id, by: deviceId, at }))
+      if (asked.length === 0) {
+        showToast('Those people are already waiting for approval')
+      } else {
+        const ok = await updateConv(conv.id, { join_requests: [...conv.requests, ...asked] })
+        if (ok) showToast('Request sent. An admin needs to approve it.')
+      }
+    }
+    setAddPick([])
+    setAddQuery('')
+    setGroupInfoView('list')
+  }
+  const addCandidates = groupInfo
+    ? allMembers.filter(
+        (m) =>
+          !groupInfo.members.includes(m.deviceId) &&
+          !groupInfo.requests.some((r) => r.deviceId === m.deviceId) &&
+          m.name.toLowerCase().includes(addQuery.trim().toLowerCase()),
+      )
+    : []
+
+  const renderMemberRow = (conv: Conversation, id: string) => {
+    const who = memberByDevice.get(id)
+    const username = id === deviceId ? userName || who?.name || 'You' : who?.name ?? 'Member'
+    const nick = nickIn(conv, id)
+    const isAdminRow = id === conv.createdBy
+    const canNick = id === deviceId || iAmAdmin
+    const canKick = iAmAdmin && id !== deviceId && !isAdminRow
+    const hasOptions = canNick || canKick
+    const seed = who?.avatarSeed ?? (id === deviceId ? `${userName}-${avatarSalt}` : id)
+    return (
+      <li key={`row-${id}`}>
+        <div className="lounge-chatsheet__row lounge-people__row lounge-ginfo__row">
+          <LoungeAvatar seed={seed} size={32} />
+          {nickFor === id ? (
+            <form
+              className="lounge-ginfo__nick"
+              onSubmit={(e) => {
+                e.preventDefault()
+                void saveNickname(conv, id)
+              }}
+            >
+              <input
+                type="text"
+                value={nickInput}
+                maxLength={20}
+                placeholder={username}
+                onChange={(e) => setNickInput(e.target.value)}
+                aria-label={`Nickname for ${username}`}
+                autoFocus
+              />
+              <button type="submit" className="lounge-ginfo__btn is-accept" aria-label="Save nickname" title="Save">
+                ✓
+              </button>
+              <button type="button" className="lounge-ginfo__btn" onClick={() => setNickFor(null)} aria-label="Cancel" title="Cancel">
+                ✕
+              </button>
+            </form>
+          ) : (
+            <>
+              <span className="lounge-ginfo__who">
+                <span className="lounge-chatsheet__who">
+                  {nick || username}
+                  {id === deviceId ? ' (You)' : ''}
+                </span>
+                {nick && <small>@{username}</small>}
+              </span>
+              {isAdminRow && <span className="lounge-ginfo__badge">Admin</span>}
+              {kickConfirm === id ? (
+                <span className="lounge-ginfo__actions">
+                  <button type="button" className="lounge-ginfo__kick is-sure" onClick={() => kickMember(conv, id)}>
+                    Remove
+                  </button>
+                  <button type="button" className="lounge-ginfo__kick" onClick={() => setKickConfirm(null)}>
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                hasOptions && (
+                  <button
+                    type="button"
+                    className={`lounge-ginfo__dots${optionsFor === id ? ' is-open' : ''}`}
+                    onClick={() => setOptionsFor((cur) => (cur === id ? null : id))}
+                    aria-label={`Options for ${username}`}
+                    aria-expanded={optionsFor === id}
+                    title="Options"
+                  >
+                    <span aria-hidden="true">⋯</span>
+                  </button>
+                )
+              )}
+            </>
+          )}
+        </div>
+        {optionsFor === id && nickFor !== id && kickConfirm !== id && (
+          <div className="lounge-ginfo__menu" role="menu">
+            {canNick && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setNickInput(nick)
+                  setNickFor(id)
+                  setOptionsFor(null)
+                }}
+              >
+                {nick ? 'Change nickname' : 'Set nickname'}
+              </button>
+            )}
+            {canNick && nick && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOptionsFor(null)
+                  const next = { ...conv.nicknames }
+                  delete next[id]
+                  void updateConv(conv.id, { nicknames: next })
+                }}
+              >
+                Reset nickname
+              </button>
+            )}
+            {canKick && (
+              <button
+                type="button"
+                role="menuitem"
+                className="is-danger"
+                onClick={() => {
+                  setOptionsFor(null)
+                  setKickConfirm(id)
+                }}
+              >
+                Remove from group
+              </button>
+            )}
+          </div>
+        )}
+      </li>
+    )
+  }
   const sheetMembers = allMembers.filter(
     (m) => m.deviceId !== deviceId && m.name.toLowerCase().includes(memberQuery.trim().toLowerCase()),
   )
@@ -3435,7 +3776,7 @@ export default function DevLoungeModal({
 
   // The player is portaled straight to <body>, outside the modal, so it keeps playing after the lounge closes
   const musicEl = createPortal(
-    <LoungeMusic open={!!open} suppressed={!!open && activeMusic} covered={!!open && (needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet)} others={musicOthers} onNowPlaying={handleNowPlaying} commandRef={musicCommandRef} slotRef={musicSlotRef} />,
+    <LoungeMusic open={!!open} suppressed={!!open && activeMusic} covered={!!open && (needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet || peopleOpen || groupInfoOpen || !!viewNoteId)} others={musicOthers} onNowPlaying={handleNowPlaying} commandRef={musicCommandRef} slotRef={musicSlotRef} />,
     document.body,
   )
 
@@ -3486,6 +3827,79 @@ export default function DevLoungeModal({
           </div>
         )}
 
+        {viewNoteId && (() => {
+          const vs = stories.find((x) => x.id === viewNoteId)
+          const at = vs ? (vs.isMe ? userNoteUpdatedAt : vs.noteAt) : null
+          const text = vs ? (vs.isMe ? userNote : vs.note) : ''
+          const live = !!vs && isNoteLive(text, at)
+          const close = () => setViewNoteId(null)
+          return (
+            <div
+              className="lounge-note-modal-backdrop"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) close()
+              }}
+            >
+              <div className="lounge-note-modal lounge-noteview" role="dialog" aria-label={vs ? `${vs.name}'s note` : 'Note'}>
+                <div className="lounge-note-modal__header">
+                  <h3>{vs?.isMe ? 'Your note' : `${vs?.name ?? 'Someone'}'s note`}</h3>
+                  <button type="button" className="lounge-close" onClick={close} aria-label="Close">
+                    <X size={14} weight="bold" />
+                  </button>
+                </div>
+                {vs && live ? (
+                  <div className="lounge-noteview__body">
+                    <div className="lounge-noteview__bubble">{text}</div>
+                    <div className="lounge-ring lounge-ring--live">
+                      <div className="lounge-ring__inner">
+                        <LoungeAvatar seed={vs.avatarSeed} size={46} />
+                      </div>
+                    </div>
+                    <div className="lounge-note-modal__name">{vs.name}</div>
+                    <div className="lounge-noteview__meta">Posted {formatTimeAgo(at ?? undefined)}</div>
+                    {(() => {
+                      const got = noteReactionsFor(vs.deviceId, at)
+                      return (
+                        <div className="lounge-notereact">
+                          <div className="lounge-notereact__picker" role="group" aria-label="React to this note">
+                            {QUICK_REACTIONS.map((emoji) => {
+                              const mine = got.some((g) => g.emoji === emoji && g.mine)
+                              return (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  className={`lounge-notereact__btn${mine ? ' is-mine' : ''}`}
+                                  onClick={() => toggleNoteReaction(vs.deviceId, at, emoji)}
+                                  aria-pressed={mine}
+                                  aria-label={`React with ${emoji}`}
+                                >
+                                  {emoji}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          {got.length > 0 && (
+                            <div className="lounge-notereact__chips">
+                              {got.map((g) => (
+                                <span key={g.emoji} className={`lounge-notereact__chip${g.mine ? ' is-mine' : ''}`} title={g.names.join(', ')}>
+                                  {g.emoji} <b>{g.count}</b>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+                    <p className="lounge-noteview__hint">Notes disappear 24 hours after they are posted.</p>
+                  </div>
+                ) : (
+                  <p className="lounge-chatsheet__empty">This note has expired.</p>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
         {isNoteModalOpen && (
           <div className="lounge-note-modal-backdrop">
             <div className="lounge-note-modal" role="dialog" aria-label="Your note">
@@ -3521,6 +3935,19 @@ export default function DevLoungeModal({
                   {isNoteLive(userNote, userNoteUpdatedAt) ? formatTimeAgo(userNoteUpdatedAt) : ''}
                 </div>
                 <div className="lounge-note-modal__count">{noteModalInput.length}/20</div>
+                {isNoteLive(userNote, userNoteUpdatedAt) &&
+                  (() => {
+                    const got = noteReactionsFor(deviceId, userNoteUpdatedAt)
+                    return got.length > 0 ? (
+                      <div className="lounge-notereact__chips" aria-label="Reactions to your note">
+                        {got.map((g) => (
+                          <span key={g.emoji} className="lounge-notereact__chip" title={g.names.join(', ')}>
+                            {g.emoji} <b>{g.count}</b>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null
+                  })()}
               </div>
 
               <div className="lounge-note-modal__footer">
@@ -3536,6 +3963,178 @@ export default function DevLoungeModal({
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {groupInfo && (
+          <div
+            className="lounge-note-modal-backdrop"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closeGroupInfo()
+            }}
+          >
+            <div className="lounge-note-modal lounge-chatsheet lounge-people lounge-ginfo" role="dialog" aria-label={`Members of ${groupInfo.name}`}>
+              <div className="lounge-note-modal__header">
+                <h3>
+                  <span className="lounge-ginfo__icon" aria-hidden="true">
+                    {groupInfo.icon}
+                  </span>{' '}
+                  {groupInfoView === 'add' ? 'Add members' : groupInfo.name}
+                </h3>
+                <button type="button" className="lounge-close" onClick={closeGroupInfo} aria-label="Close">
+                  <X size={14} weight="bold" />
+                </button>
+              </div>
+
+              {groupInfoView === 'add' ? (
+                <>
+                  <p className="lounge-note-modal__sub">
+                    {iAmAdmin ? 'Pick people to add to the group.' : 'Pick people to suggest. An admin has to approve them first.'}
+                  </p>
+                  <input
+                    type="text"
+                    className="lounge-chatsheet__search"
+                    placeholder="Search members…"
+                    value={addQuery}
+                    onChange={(e) => setAddQuery(e.target.value)}
+                    autoFocus
+                  />
+                  <ul className="lounge-chatsheet__list">
+                    {addCandidates.length === 0 && <li className="lounge-chatsheet__empty">No one left to add.</li>}
+                    {addCandidates.map((m) => {
+                      const picked = addPick.includes(m.deviceId)
+                      return (
+                        <li key={m.deviceId}>
+                          <button
+                            type="button"
+                            className={`lounge-chatsheet__row${picked ? ' is-picked' : ''}`}
+                            onClick={() => setAddPick((p) => (picked ? p.filter((x) => x !== m.deviceId) : [...p, m.deviceId]))}
+                          >
+                            <LoungeAvatar seed={m.avatarSeed} size={32} />
+                            <span className="lounge-chatsheet__who">{m.name}</span>
+                            <span className={`lounge-chatsheet__live${onlineIds.has(m.deviceId) ? '' : ' is-offline'}`}>{onlineIds.has(m.deviceId) ? 'online' : 'offline'}</span>
+                            <span className="lounge-chatsheet__check" aria-hidden="true">
+                              {picked ? '✓' : ''}
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  <div className="lounge-note-modal__footer">
+                    <span className="lounge-chatsheet__count">{addPick.length} selected</span>
+                    <div className="lounge-note-modal__footer-right">
+                      <button type="button" className="lounge-btn-cancel" onClick={() => { setGroupInfoView('list'); setAddPick([]); setAddQuery('') }}>
+                        Back
+                      </button>
+                      <button type="button" className="lounge-btn-post" onClick={() => submitAddMembers(groupInfo)} disabled={addPick.length === 0}>
+                        {iAmAdmin ? 'Add' : 'Send request'}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="lounge-note-modal__sub">
+                    {groupInfo.members.length} {groupInfo.members.length === 1 ? 'member' : 'members'}
+                  </p>
+                  <button type="button" className="lounge-ginfo__add" onClick={() => setGroupInfoView('add')}>
+                    <Plus size={14} weight="bold" />
+                    Add members
+                  </button>
+
+                  <ul className="lounge-chatsheet__list">
+                    {groupInfo.requests.length > 0 && (
+                      <>
+                        <li className="lounge-people__label" aria-hidden="true">
+                          Waiting for approval ({groupInfo.requests.length})
+                        </li>
+                        {groupInfo.requests.map((r) => {
+                          const who = memberByDevice.get(r.deviceId)
+                          return (
+                            <li key={`req-${r.deviceId}`}>
+                              <div className="lounge-chatsheet__row lounge-people__row lounge-ginfo__req">
+                                <LoungeAvatar seed={who?.avatarSeed ?? r.deviceId} size={32} />
+                                <span className="lounge-ginfo__who">
+                                  <span className="lounge-chatsheet__who">{who?.name ?? 'Member'}</span>
+                                  <small>added by {nameOf(r.by)}</small>
+                                </span>
+                                {iAmAdmin ? (
+                                  <span className="lounge-ginfo__actions">
+                                    <button type="button" className="lounge-ginfo__btn is-accept" onClick={() => approveRequest(groupInfo, r.deviceId)} aria-label={`Accept ${who?.name ?? 'member'}`} title="Accept">
+                                      ✓
+                                    </button>
+                                    <button type="button" className="lounge-ginfo__btn is-reject" onClick={() => rejectRequest(groupInfo, r.deviceId)} aria-label={`Reject ${who?.name ?? 'member'}`} title="Reject">
+                                      ✕
+                                    </button>
+                                  </span>
+                                ) : (
+                                  <span className="lounge-chatsheet__live is-offline">pending</span>
+                                )}
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </>
+                    )}
+
+                    <li className="lounge-people__label" aria-hidden="true">
+                      Admin
+                    </li>
+                    {groupInfo.members.filter((id) => id === groupInfo.createdBy).map((id) => renderMemberRow(groupInfo, id))}
+
+                    <li className="lounge-people__label" aria-hidden="true">
+                      Members
+                    </li>
+                    {groupInfo.members.filter((id) => id !== groupInfo.createdBy).length === 0 && <li className="lounge-chatsheet__empty">No other members.</li>}
+                    {groupInfo.members.filter((id) => id !== groupInfo.createdBy).map((id) => renderMemberRow(groupInfo, id))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {peopleOpen && (
+          <div
+            className="lounge-note-modal-backdrop"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setPeopleOpen(false)
+            }}
+          >
+            <div className="lounge-note-modal lounge-chatsheet lounge-people" role="dialog" aria-label="Members online and offline">
+              <div className="lounge-note-modal__header">
+                <h3>Members</h3>
+                <button type="button" className="lounge-close" onClick={() => setPeopleOpen(false)} aria-label="Close">
+                  <X size={14} weight="bold" />
+                </button>
+              </div>
+              <p className="lounge-note-modal__sub">
+                {onlineCount} online · {Math.max(peopleList.length - onlineCount, 0)} offline
+              </p>
+              <ul className="lounge-chatsheet__list">
+                {peopleList.length === 0 && <li className="lounge-chatsheet__empty">No members yet.</li>}
+                {peopleList.map((m, i) => (
+                  <Fragment key={m.deviceId}>
+                    {(i === 0 || peopleList[i - 1].isOnline !== m.isOnline) && (
+                      <li className="lounge-people__label" aria-hidden="true">
+                        {m.isOnline ? 'Online' : 'Offline'}
+                      </li>
+                    )}
+                    <li>
+                      <div className={`lounge-chatsheet__row lounge-people__row${m.isOnline ? '' : ' is-offline'}`}>
+                        <LoungeAvatar seed={m.avatarSeed} size={32} />
+                        <span className="lounge-chatsheet__who">
+                          {m.name}
+                          {m.isMe ? ' (You)' : ''}
+                        </span>
+                        <span className={`lounge-chatsheet__live${m.isOnline ? '' : ' is-offline'}`}>{m.isOnline ? 'online' : 'offline'}</span>
+                      </div>
+                    </li>
+                  </Fragment>
+                ))}
+              </ul>
             </div>
           </div>
         )}
@@ -3647,6 +4246,18 @@ export default function DevLoungeModal({
             </div>
           </div>
           <div className="lounge-header__right">
+            <div className="lounge-header__chats" role="group" aria-label="Chats">
+              <button type="button" className={`lounge-iconbtn${activeChat === 'global' ? ' is-active' : ''}`} onClick={() => switchChat('global')} aria-pressed={activeChat === 'global'} aria-label="Global chat" title="Global chat">
+                <GlobeIcon />
+                {(unread.global ?? 0) > 0 && <i className="lounge-chip__dot" aria-label="New messages" />}
+              </button>
+              <button type="button" className="lounge-iconbtn" onClick={() => openChatSheet('group')} aria-label="New group chat" title="New group chat">
+                <UsersIcon />
+              </button>
+              <button type="button" className="lounge-iconbtn lounge-iconbtn--add" onClick={() => openChatSheet('dm')} aria-label="New direct message" title="New direct message">
+                <Plus size={14} weight="bold" />
+              </button>
+            </div>
             <div className={`lounge-music-slot${activeMusic ? ' is-collapsed' : ''}`} ref={musicSlotRef} aria-hidden="true" />
             <div className="lounge-group-music-slot" ref={setGroupMusicSlot} />
             <button
@@ -3658,11 +4269,18 @@ export default function DevLoungeModal({
             >
               {isPlayingBgm ? '🔊' : '🔇'}
             </button>
-            <span className={`lounge-live-badge${channelReady ? '' : ' is-offline'}`} title={onlineTitle} aria-live="polite">
+            <button
+              type="button"
+              className={`lounge-live-badge lounge-live-badge--btn${channelReady ? '' : ' is-offline'}`}
+              title="See who's online"
+              aria-haspopup="dialog"
+              aria-expanded={peopleOpen}
+              onClick={() => setPeopleOpen(true)}
+            >
               <span className="lounge-live-dot" />
               <b>{onlineCount}</b> online
               {memberCount > 0 && <span className="lounge-live-badge__total">· {memberCount} members</span>}
-            </span>
+            </button>
             <button type="button" className="lounge-close" onClick={() => handleClose('button')} aria-label="Close lounge">
               <X size={14} weight="bold" />
             </button>
@@ -3688,9 +4306,14 @@ export default function DevLoungeModal({
                   </button>
                 ) : (
                   hasNote && (
-                    <div className="lounge-note-bubble">
+                    <button
+                      type="button"
+                      className="lounge-note-bubble"
+                      onClick={() => setViewNoteId(s.id)}
+                      aria-label={`${s.name}'s note: ${note}`}
+                    >
                       <span>{note}</span>
-                    </div>
+                    </button>
                   )
                 )}
 
@@ -3710,6 +4333,14 @@ export default function DevLoungeModal({
                   />
                 </div>
                 <span className="lounge-story-name">{s.isMe ? 'You' : s.name}</span>
+                {hasNote && (() => {
+                  const got = noteReactionsFor(s.deviceId, noteAt)
+                  return got.length > 0 ? (
+                    <span className="lounge-story-react" aria-label={`${got.reduce((n, g) => n + g.count, 0)} reactions`}>
+                      {got.slice(0, 3).map((g) => g.emoji).join('')} {got.reduce((n, g) => n + g.count, 0)}
+                    </span>
+                  ) : null
+                })()}
                 <span className="lounge-story-time">{hasNote ? formatTimeAgo(noteAt ?? undefined) : ''}</span>
               </div>
             )
@@ -3720,24 +4351,11 @@ export default function DevLoungeModal({
           </button>
         </div>
 
+        {(conversations.length > 0 || activeConv) && (
         <div className="lounge-chats" aria-label="Chats">
           <div className="lounge-chats__actions">
-            <button type="button" className={`lounge-chip${activeChat === 'global' ? ' is-active' : ''}`} onClick={() => switchChat('global')} aria-pressed={activeChat === 'global'}>
-              <GlobeIcon />
-              Global chat
-              {(unread.global ?? 0) > 0 && <i className="lounge-chip__dot" aria-label="New messages" />}
-            </button>
-            <button type="button" className="lounge-chip" onClick={() => openChatSheet('group')}>
-              <UsersIcon />
-              New group
-            </button>
-            <button type="button" className="lounge-chip lounge-chip--icon" onClick={() => openChatSheet('dm')} aria-label="New direct message" title="New direct message">
-              <Plus size={14} weight="bold" />
-            </button>
-
             {conversations.length > 0 && (
               <>
-                <span className="lounge-chats__sep" aria-hidden="true" />
                 <div className="lounge-chats__rail" role="group" aria-label="Your groups and direct messages">
                   {conversations.map((c) => {
                     const count = unread[c.id] ?? 0
@@ -3763,6 +4381,11 @@ export default function DevLoungeModal({
                           </span>
                           {c.kind === 'dm' && <span className={`lounge-chat-av__online${online[c.otherId] ? '' : ' is-offline'}`} aria-hidden="true" />}
                           {count > 0 && <b className="lounge-chat-av__badge">{count > 9 ? '9+' : count}</b>}
+                          {c.pinned && (
+                            <i className="lounge-chat-av__pin" aria-hidden="true">
+                              <PinIcon />
+                            </i>
+                          )}
                         </span>
                       </button>
                     )
@@ -3788,11 +4411,38 @@ export default function DevLoungeModal({
                   {online[activeConv.otherId] ? 'Online' : 'Offline'}
                 </span>
               ) : (
-                <span>{activeConv.members.length} members</span>
+                <button
+                  type="button"
+                  className="lounge-chat-title__members"
+                  onClick={() => {
+                    setGroupInfoView('list')
+                    setGroupInfoOpen(true)
+                  }}
+                  title="See members"
+                  aria-haspopup="dialog"
+                >
+                  <UsersIcon />
+                  {activeConv.members.length} members
+                  {activeConv.createdBy === deviceId && activeConv.requests.length > 0 && (
+                    <i className="lounge-chat-title__pending" aria-label={`${activeConv.requests.length} pending requests`}>
+                      {activeConv.requests.length}
+                    </i>
+                  )}
+                </button>
               )}
             </div>
-            {activeConv.kind === 'group' && (
-              <div className="lounge-chat-head__right">
+            <div className="lounge-chat-head__right">
+              <button
+                type="button"
+                className={`lounge-chip lounge-chip--icon-only${activeConv.pinned ? ' is-active' : ''}`}
+                onClick={() => togglePinChat(activeConv.id)}
+                aria-pressed={activeConv.pinned}
+                aria-label={activeConv.pinned ? 'Unpin this chat' : 'Pin this chat'}
+                title={activeConv.pinned ? 'Unpin chat' : 'Pin chat to the top'}
+              >
+                <PinIcon />
+              </button>
+              {activeConv.kind === 'group' && (
                 <button
                   type="button"
                   className={`lounge-chip${activeMusic ? ' is-active' : ''}`}
@@ -3803,11 +4453,12 @@ export default function DevLoungeModal({
                   <NoteIcon />
                   Music
                 </button>
-              </div>
-            )}
+              )}
+            </div>
             </div>
           )}
         </div>
+        )}
 
         {/* The group's music player is drawn up in the header, beside the speaker button.
             It is still rendered by this component, so its queue, volume and playback are untouched. */}
@@ -3819,7 +4470,7 @@ export default function DevLoungeModal({
                 variant="group"
                 storageKey={`lounge_music_group_${activeConv.id}`}
                 open={!!open}
-                covered={needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet}
+                covered={needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet || peopleOpen || groupInfoOpen || !!viewNoteId}
                 others={groupMusicOthers}
                 liveLabel="Playing in this group"
                 onNowPlaying={(t) => handleGroupNowPlaying(activeConv.id, t)}
@@ -3864,7 +4515,7 @@ export default function DevLoungeModal({
                 <div className="lounge-msg__content">
                   {showHead && (
                     <div className="lounge-msg__meta">
-                      <span className="lounge-msg__author">{m.isMe ? 'You' : m.author}</span>
+                      <span className="lounge-msg__author">{m.isMe ? 'You' : shownName(m.authorId, m.author)}</span>
                       <span className="lounge-msg__time">{m.time}</span>
                     </div>
                   )}
@@ -3917,7 +4568,7 @@ export default function DevLoungeModal({
                             if (parent) jumpToMessage(parent.id)
                           }}
                         >
-                          <b>{parent ? (parent.isMe ? 'You' : parent.author) : 'Message'}</b>
+                          <b>{parent ? (parent.isMe ? 'You' : shownName(parent.authorId, parent.author)) : 'Message'}</b>
                           <span>{parent ? parent.text : 'Original message unavailable'}</span>
                         </button>
                       )}

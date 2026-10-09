@@ -5561,3 +5561,335 @@ button.lounge-note-bubble:hover { animation-play-state: paused; }
   }
   .lounge-group-music-slot .lounge-music.is-inline .lounge-music__screen { width: 44px; }
 }
+
+/* ===================================================
+   CHAT BUTTONS LIVE IN THE HEADER (icon only)
+   Global chat / New group / New message no longer take a row
+   above the feed, so the feed keeps its full height.
+   =================================================== */
+.lounge-header__chats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.lounge-iconbtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--l-surface, var(--white));
+  color: var(--navy);
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s, border-color 0.16s, transform 0.16s;
+}
+.lounge-iconbtn svg { width: 16px; height: 16px; flex: none; }
+.lounge-iconbtn:hover { border-color: color-mix(in srgb, var(--orange) 55%, var(--line-strong)); }
+.lounge-iconbtn:active { transform: scale(0.95); }
+.lounge-iconbtn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.lounge-iconbtn.is-active {
+  border-color: transparent;
+  background: linear-gradient(135deg, #ff7a1a, #ff9d2e);
+  color: #fff;
+}
+.lounge-iconbtn.is-active .lounge-chip__dot { border-color: #ff9d2e; background: #fff; }
+.lounge-iconbtn--add {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--orange) 60%, var(--line-strong));
+  background: color-mix(in srgb, var(--orange) 8%, transparent);
+  color: var(--orange);
+}
+.lounge-iconbtn--add:hover { border-style: solid; background: var(--orange); border-color: var(--orange); color: #fff; }
+
+/* the avatar row only appears when you have groups / DMs, and stays slim */
+.lounge-chats { padding: 6px 0; gap: 4px; }
+
+@media (max-width: 480px) {
+  .lounge-header__chats { gap: 4px; }
+  .lounge-iconbtn { width: 30px; height: 30px; }
+}
+
+/* ===================================================
+   LIVE BADGE IS A BUTTON: opens the online / offline list
+   =================================================== */
+button.lounge-live-badge--btn {
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.16s, box-shadow 0.16s, transform 0.16s;
+}
+button.lounge-live-badge--btn:hover {
+  border-color: color-mix(in srgb, var(--orange) 55%, var(--line-strong));
+  box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--orange) 70%, transparent);
+}
+button.lounge-live-badge--btn:active { transform: scale(0.97); }
+button.lounge-live-badge--btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+.lounge-people .lounge-chatsheet__list { margin-top: 0; }
+.lounge-people__label {
+  list-style: none;
+  padding: 10px 8px 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lounge-people__row { cursor: default; }
+.lounge-people__row:hover { background: transparent; }
+.lounge-people__row.is-offline .lounge-chatsheet__who { color: var(--muted); }
+.lounge-people__row.is-offline .lounge-avatar,
+.lounge-people__row.is-offline svg { opacity: 0.7; }
+
+
+/* ===================================================
+   GROUP MEMBERS PANEL: admin / members, kick, approval requests
+   =================================================== */
+.lounge-chat-title__members {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--l-surface, var(--white));
+  color: var(--navy);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.16s, background 0.16s;
+}
+.lounge-chat-title__members svg { width: 13px; height: 13px; opacity: 0.8; }
+.lounge-chat-title__members:hover { border-color: color-mix(in srgb, var(--orange) 55%, var(--line-strong)); }
+.lounge-chat-title__members:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.lounge-chat-title__pending {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ff5d8f;
+  color: #fff;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-grid;
+  place-items: center;
+}
+
+.lounge-ginfo { max-width: 400px; }
+.lounge-ginfo__icon { font-size: 18px; }
+.lounge-ginfo__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  height: 38px;
+  margin-bottom: 6px;
+  border: 1px dashed color-mix(in srgb, var(--orange) 60%, var(--line-strong));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--orange) 8%, transparent);
+  color: var(--orange);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s;
+}
+.lounge-ginfo__add:hover { background: var(--orange); border-style: solid; color: #fff; }
+
+.lounge-ginfo__badge {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff7a1a, #ff9d2e);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.lounge-ginfo__who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lounge-ginfo__who small { font-size: 11px; color: var(--muted); font-weight: 600; }
+.lounge-ginfo__actions { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+
+.lounge-ginfo__btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--l-surface, var(--white));
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s, border-color 0.16s;
+}
+.lounge-ginfo__btn.is-accept { color: #0e9f6e; }
+.lounge-ginfo__btn.is-accept:hover { background: #0e9f6e; border-color: #0e9f6e; color: #fff; }
+.lounge-ginfo__btn.is-reject { color: #f43f5e; }
+.lounge-ginfo__btn.is-reject:hover { background: #f43f5e; border-color: #f43f5e; color: #fff; }
+
+.lounge-ginfo__kick {
+  flex: none;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #f43f5e 40%, var(--line-strong));
+  background: transparent;
+  color: #f43f5e;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s;
+}
+.lounge-ginfo__kick:hover,
+.lounge-ginfo__kick.is-sure { background: #f43f5e; border-color: #f43f5e; color: #fff; }
+.lounge-ginfo__actions .lounge-ginfo__kick:not(.is-sure) { color: var(--muted); border-color: var(--line-strong); }
+.lounge-ginfo__actions .lounge-ginfo__kick:not(.is-sure):hover { background: transparent; color: var(--navy); }
+
+
+/* ---- member row: 3-dot options + nickname ---- */
+.lounge-ginfo__dots {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s;
+}
+.lounge-ginfo__dots:hover,
+.lounge-ginfo__dots.is-open { background: color-mix(in srgb, var(--navy) 8%, transparent); color: var(--navy); }
+.lounge-ginfo__dots:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+.lounge-ginfo__menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -2px 8px 8px 50px;
+}
+.lounge-ginfo__menu button {
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--l-surface, var(--white));
+  color: var(--navy);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s, color 0.16s;
+}
+.lounge-ginfo__menu button:hover { border-color: color-mix(in srgb, var(--orange) 55%, var(--line-strong)); }
+.lounge-ginfo__menu button.is-danger { color: #f43f5e; border-color: color-mix(in srgb, #f43f5e 40%, var(--line-strong)); }
+.lounge-ginfo__menu button.is-danger:hover { background: #f43f5e; border-color: #f43f5e; color: #fff; }
+
+.lounge-ginfo__nick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.lounge-ginfo__nick input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--l-surface, var(--white));
+  color: var(--navy);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+.lounge-ginfo__nick input:focus { outline: 2px solid color-mix(in srgb, var(--orange) 60%, transparent); border-color: var(--orange); }
+
+
+
+/* ---------- message actions: keep the whole pill (react, reply, edit, PIN) inside the chat ----------
+   The pill used to sit beside the bubble, so with four buttons it could run off the edge of the feed
+   and hide the last one. Now it floats on the bubble's top corner, always fully visible. */
+@media (min-width: 901px) {
+  .lounge-actions,
+  .lounge-msg--me .lounge-actions {
+    top: -16px;
+    transform: translateY(4px) scale(0.96);
+    z-index: 6;
+    white-space: nowrap;
+  }
+  .lounge-actions { left: 0; right: auto; }
+  .lounge-msg--me .lounge-actions { left: auto; right: 0; }
+  .lounge-msg:hover .lounge-actions,
+  .lounge-msg.is-active .lounge-actions,
+  .lounge-actions:focus-within { transform: none; }
+}
+
+/* ===================================================
+   PINNED CHATS (max 2): pin button in the chat header, pin mark on the avatar
+   =================================================== */
+.lounge-chat-head__right { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.lounge-chip.lounge-chip--icon-only { width: 30px; height: 30px; padding: 0; justify-content: center; }
+.lounge-chip--icon-only svg { width: 14px; height: 14px; }
+.lounge-chat-av__pin {
+  position: absolute;
+  top: -3px;
+  left: -4px;
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--orange);
+  border: 2px solid var(--l-surface, var(--white));
+  color: #fff;
+  box-sizing: content-box;
+}
+.lounge-chat-av__pin svg { width: 9px; height: 9px; stroke-width: 2.6; }
+
+
+/* ===================================================
+   NOTES: tap to open, with the 24-hour expiry shown
+   =================================================== */
+button.lounge-note-bubble { font: inherit; font-size: 10.5px; font-weight: 600; color: var(--navy); }
+button.lounge-note-bubble:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+.lounge-noteview { max-width: 340px; }
+.lounge-noteview__body { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 0 4px; text-align: center; }
+.lounge-noteview__bubble {
+  max-width: 100%;
+  margin-bottom: 8px;
+  padding: 10px 16px;
+  background: var(--l-surface);
+  border: 1.5px solid var(--line-strong);
+  border-radius: 18px;
+  box-shadow: 0 6px 16px -6px rgba(6, 12, 26, 0.18);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy);
+  word-break: break-word;
+}
+.lounge-noteview__meta { font-size: 11.5px; color: var(--muted); }
+.lounge-noteview__hint { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+
+/* ===================================================
+   NOTE REACTIONS
+   =================================================== */
+.lounge-notereact { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 10px; }
+.lounge-notereact__picker { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--l-surface); }
+.lounge-notereact__btn { width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; font-size: 18px; line-height: 1; cursor: pointer; transition: transform 0.14s, background 0.14s; }
+.lounge-notereact__btn:hover { transform: scale(1.25); background: var(--tint); }
+.lounge-notereact__btn.is-mine { background: color-mix(in srgb, var(--orange) 18%, transparent); box-shadow: inset 0 0 0 1.5px var(--orange); }
+.lounge-notereact__chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 4px; }
+.lounge-notereact__chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--l-surface); font-size: 12px; color: var(--navy); }
+.lounge-notereact__chip b { font-size: 10.5px; color: var(--muted); }
+.lounge-notereact__chip.is-mine { border-color: var(--orange); background: color-mix(in srgb, var(--orange) 14%, var(--l-surface)); }
+.lounge-notereact__chip.is-mine b { color: var(--orange); }
+.lounge-story-react { font-size: 10px; font-weight: 700; color: var(--muted); line-height: 1; white-space: nowrap; }
