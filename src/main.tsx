@@ -7,6 +7,7 @@ import NotFound from '@/components/NotFound'
 import ChatBot from '@/components/ChatBot'
 import { restorePerfTier } from '@/lib/perf'
 import { restorePrefs } from '@/lib/a11y'
+import { trackVisitor } from '@/utils/visitorTracker'
 
 // Every route but Home is its own chunk: the first visit only pays for Home.
 const ProjectsView = lazy(() => import('@/views/ProjectsView'))
@@ -63,6 +64,9 @@ import './styles/perf.css'
 // downgraded visitor never sees the expensive layers flash back on reload.
 restorePerfTier()
 restorePrefs()
+
+// Track visitor - this runs asynchronously and doesn't block rendering
+trackVisitor()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('Root element #root not found')
