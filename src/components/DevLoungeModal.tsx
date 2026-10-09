@@ -2135,29 +2135,46 @@ export default function DevLoungeModal({
       })
     return Array.from(grouped.values())
   }
+  // One reaction per person per note: tapping a new emoji swaps your old one, tapping the same one removes it.
   const toggleNoteReaction = async (ownerId: string, at: string | null | undefined, emoji: string) => {
     if (!deviceId || !at) return
     const noteAtIso = new Date(at).toISOString()
     const t = noteTime(noteAtIso)
-    const existing = rawNoteReactions.find(
-      (r) => r.note_owner === ownerId && noteTime(r.note_at) === t && r.device_id === deviceId && r.emoji === emoji,
-    )
-    if (existing) {
-      setRawNoteReactions((prev) => prev.filter((r) => r !== existing))
+    const isMineOnThisNote = (r: any) => r.note_owner === ownerId && noteTime(r.note_at) === t && r.device_id === deviceId
+    const mineNow = rawNoteReactions.filter(isMineOnThisNote)
+    const sameOne = mineNow.find((r) => r.emoji === emoji)
+
+    if (sameOne) {
+      // same emoji again = take it back
+      setRawNoteReactions((prev) => prev.filter((r) => !isMineOnThisNote(r)))
       const { error } = await supabase
         .from('lounge_note_reactions')
         .delete()
         .eq('note_owner', ownerId)
         .eq('device_id', deviceId)
-        .eq('emoji', emoji)
-        .eq('note_at', existing.note_at)
+        .eq('note_at', sameOne.note_at)
       if (error) showToast(`Couldn't remove reaction: ${error.message}`)
     } else {
+      // different emoji = replace whatever I reacted with before (only ever 1 left)
       const row = { note_owner: ownerId, note_at: noteAtIso, device_id: deviceId, emoji }
-      setRawNoteReactions((prev) => [...prev, row])
+      const previous = mineNow
+      setRawNoteReactions((prev) => [...prev.filter((r) => !isMineOnThisNote(r)), row])
+      if (previous.length > 0) {
+        const { error: delErr } = await supabase
+          .from('lounge_note_reactions')
+          .delete()
+          .eq('note_owner', ownerId)
+          .eq('device_id', deviceId)
+          .eq('note_at', previous[0].note_at)
+        if (delErr) {
+          setRawNoteReactions((prev) => [...prev.filter((r) => r !== row), ...previous])
+          showToast(`Couldn't change reaction: ${delErr.message}`)
+          return
+        }
+      }
       const { error } = await supabase.from('lounge_note_reactions').insert([row])
       if (error) {
-        setRawNoteReactions((prev) => prev.filter((r) => r !== row))
+        setRawNoteReactions((prev) => [...prev.filter((r) => r !== row), ...previous])
         showToast(
           /lounge_note_reactions/.test(error.message) || (error as any).code === '42P01'
             ? 'Note reactions need lounge_note_reactions.sql run in Supabase first.'
