@@ -4,6 +4,7 @@ import { X, CaretRight, Plus } from '@/components/slab'
 import { useDismiss, type DismissReason } from '@/hooks/useDismiss'
 import { supabase } from '@/lib/supabase'
 import LoungeGames, { type DuelBus } from './LoungeGames'
+import ChillZone, { type ChillMember } from './ChillZone'
 import { sounds } from '@/utils/soundManager'
 
 export const LOUNGE_OPEN_EVENT = 'lounge:open'
@@ -1166,6 +1167,7 @@ function LoungeMusic({
   variant = 'global',
   storageKey = MUSIC_KEY,
   liveLabel = 'Playing in the lounge',
+  pinned = false,
 }: {
   open: boolean
   suppressed?: boolean // global player only: a group's own player is showing, so this one steps aside
@@ -1179,6 +1181,7 @@ function LoungeMusic({
   variant?: 'global' | 'group'
   storageKey?: string // where this player's queue + volume are remembered on this device
   liveLabel?: string
+  pinned?: boolean // desktop Chill Zone: the playlist panel is always open and the pill is hidden
 }) {
   const isGroup = variant === 'group'
   const saved = useRef(readMusic(storageKey)).current
@@ -1186,7 +1189,8 @@ function LoungeMusic({
   const [index, setIndex] = useState(saved.index)
   const [volume, setVolume] = useState(saved.volume)
   const [playing, setPlaying] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const [expandedState, setExpanded] = useState(false)
+  const expanded = pinned || expandedState
   const [input, setInput] = useState('')
   const [note, setNote] = useState('')
   const [active, setActive] = useState(false) // a song is loaded (playing or paused): keeps the floating player on screen
@@ -1808,7 +1812,7 @@ function LoungeMusic({
 
   return (
     <div
-      className={`lounge-music ${mode}${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}${covered ? ' is-covered' : ''}${suppressed && !isGroup ? ' is-suppressed' : ''}${popUp ? ' is-up' : ''}${popLeft ? ' is-left' : ''}`}
+      className={`lounge-music ${mode}${pinned ? ' is-pinned' : ''}${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}${covered ? ' is-covered' : ''}${suppressed && !isGroup ? ' is-suppressed' : ''}${popUp ? ' is-up' : ''}${popLeft ? ' is-left' : ''}`}
       ref={rootRef}
       style={free && pos ? { top: pos.y, left: pos.x, right: 'auto', bottom: 'auto' } : docked && dock ? { top: dock.top, left: dock.left } : undefined}
       onPointerDown={keepOut}
@@ -1838,7 +1842,7 @@ function LoungeMusic({
           aria-expanded={expanded}
           aria-label="Open playlist"
         >
-          <b className="lounge-music__title">{followed?.title ?? current?.title ?? spotlight?.title ?? (isGroup ? 'Group music' : 'Lounge radio')}</b>
+          <b className="lounge-music__title">{followed?.title ?? current?.title ?? spotlight?.title ?? (isGroup ? 'Chat music' : 'Lounge radio')}</b>
           <span className="lounge-music__status">
             {(playing || spotlight) && (
               <span className="lounge-music__eq" aria-hidden="true">
@@ -2094,6 +2098,57 @@ export default function DevLoungeModal({
 
   // Community game (lives beside the chat)
   const [gameRefresh, setGameRefresh] = useState(0) // bumps when another member finishes a round
+  const [gamesOpen, setGamesOpen] = useState(false) // the person tapped the Games button
+  const [gamePlaying, setGamePlaying] = useState(false) // a game / challenge is active
+  const showGames = gamesOpen || gamePlaying
+  // Chill Zone: the calm side panel that takes the games' place when they are closed.
+  // Both choices are remembered on this device.
+  const [chillHidden, setChillHidden] = useState(() => {
+    try {
+      return localStorage.getItem('lounge_chill_hidden_v1') === '1'
+    } catch {
+      return false
+    }
+  })
+  const [shareActivity, setShareActivity] = useState(() => {
+    try {
+      return localStorage.getItem('lounge_share_activity_v1') !== '0'
+    } catch {
+      return true
+    }
+  })
+  const showSide = showGames || !chillHidden
+  // Desktop only: the Chill Zone is where the music plays. On phones/tablets (<= 900px) the Chill Zone is
+  // hidden, so the music pill and /play behave exactly as before.
+  const [isWide, setIsWide] = useState(() => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 901px)').matches : true))
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(min-width: 901px)')
+    const on = () => setIsWide(mq.matches)
+    on()
+    mq.addEventListener?.('change', on)
+    return () => mq.removeEventListener?.('change', on)
+  }, [])
+  const chillPlayer = isWide && showSide && !showGames
+  const [chillMusicSlot, setChillMusicSlot] = useState<HTMLDivElement | null>(null)
+  const toggleChillHidden = () =>
+    setChillHidden((v) => {
+      try {
+        localStorage.setItem('lounge_chill_hidden_v1', v ? '0' : '1')
+      } catch {
+        /* storage unavailable: the choice just won't be remembered */
+      }
+      return !v
+    })
+  const toggleShareActivity = () =>
+    setShareActivity((v) => {
+      try {
+        localStorage.setItem('lounge_share_activity_v1', v ? '0' : '1')
+      } catch {
+        /* storage unavailable: the choice just won't be remembered */
+      }
+      return !v
+    })
 
   // Sound state
   const [isPlayingBgm, setIsPlayingBgm] = useState(false)
@@ -2303,7 +2358,7 @@ export default function DevLoungeModal({
   conversationsRef.current = conversations
   const activeConv = activeChat === 'global' ? null : conversations.find((c) => c.id === activeChat) ?? null
   // the open group's own music player is shown only when this person turned it on (button in the group header)
-  const activeMusic = !!activeConv && activeConv.kind === 'group' && (!!groupMusicOn[activeConv.id] || !!groupAuto[activeConv.id])
+  const activeMusic = !!activeConv && (chillPlayer || !!groupMusicOn[activeConv.id] || !!groupAuto[activeConv.id])
   const toggleGroupMusic = (id: string) => {
     if (activeMusic) {
       // close it, and stay closed even if someone is still playing
@@ -2335,7 +2390,7 @@ export default function DevLoungeModal({
   // Someone in the open group starts playing: show the group player by itself, no button press needed
   const someoneIsPlayingInGroup = Object.keys(groupListeners).length > 0
   useEffect(() => {
-    if (!activeConv || activeConv.kind !== 'group') return
+    if (!activeConv) return
     const id = activeConv.id
     if (someoneIsPlayingInGroup) {
       if (!groupDismissed[id]) setGroupAuto((p) => (p[id] ? p : { ...p, [id]: true }))
@@ -2796,14 +2851,14 @@ export default function DevLoungeModal({
         deviceId,
         name: userName,
         avatarSeed: `${userName}-${avatarSalt}`,
-        music: myMusic,
+        music: shareActivity ? myMusic : null,
         away: document.visibilityState === 'hidden',
         at: new Date().toISOString(),
       })
     announce()
     document.addEventListener('visibilitychange', announce)
     return () => document.removeEventListener('visibilitychange', announce)
-  }, [channelReady, open, userName, deviceId, avatarSalt, myMusic])
+  }, [channelReady, open, userName, deviceId, avatarSalt, myMusic, shareActivity])
 
   // New groups / DMs show up live. Separate channel on purpose: if the table isn't set up yet,
   // only this subscription fails and the main lounge channel keeps working.
@@ -3079,6 +3134,35 @@ export default function DevLoungeModal({
         .map((m) => ({ deviceId: m.deviceId, name: m.name, id: m.music!.id, title: m.music!.title, startedAt: m.music!.startedAt ?? null })),
     [online, deviceId],
   )
+  // Who the Chill Zone shows depends on the chat that is open:
+  //  - Global chat: everyone in the lounge, with the music they share on the public channel
+  //  - Direct chat / group: only that chat's members, with what they play in THAT chat's own player
+  const chillMembers = useMemo<ChillMember[]>(() => {
+    const inChat = activeConv ? new Set(activeConv.members) : null
+    const ids = new Set<string>()
+    onlineList.forEach(({ id }) => {
+      if (!inChat || inChat.has(id)) ids.add(id)
+    })
+    if (inChat) Object.keys(groupListeners).forEach((id) => inChat.has(id) && ids.add(id))
+    if (deviceId && (!inChat || inChat.has(deviceId))) ids.add(deviceId)
+    const nameOf = (id: string) =>
+      id === deviceId ? userName : onlineList.find((m) => m.id === id)?.name ?? memberByDevice.get(id)?.name ?? groupListeners[id]?.name ?? 'Member'
+    const list = Array.from(ids).map((id) => {
+      const isMe = id === deviceId
+      const name = nameOf(id)
+      let music: { id: string; title: string } | null
+      if (inChat) music = isMe ? myGroupMusic : groupListeners[id] ?? null
+      else music = isMe ? (shareActivity ? myMusic : null) : online[id]?.music ?? null
+      return {
+        deviceId: id,
+        name,
+        avatarSeed: isMe ? `${userName}-${avatarSalt}` : memberByDevice.get(id)?.avatarSeed ?? `${name}-av01`,
+        isMe,
+        track: music ? { id: music.id, title: music.title } : null,
+      }
+    })
+    return list.sort((a, b) => Number(b.isMe) - Number(a.isMe) || Number(!!b.track) - Number(!!a.track) || a.name.localeCompare(b.name))
+  }, [activeConv, onlineList, online, deviceId, userName, avatarSalt, myMusic, myGroupMusic, groupListeners, shareActivity, memberByDevice])
   // Other members of the open group who are playing something in the group's own player.
   const groupMusicOthers = useMemo<LoungeListener[]>(
     () => Object.entries(groupListeners).map(([id, v]) => ({ deviceId: id, name: v.name, id: v.id, title: v.title, startedAt: v.startedAt })),
@@ -3087,7 +3171,7 @@ export default function DevLoungeModal({
 
   // Each music group has its OWN realtime channel ("lounge-music-<group id>"). Only members of the open
   // group subscribe to it, so a song played in a group is never sent to anyone outside that group.
-  const openMusicGroupId = activeConv && activeConv.kind === 'group' ? activeConv.id : null
+  const openMusicGroupId = activeConv ? activeConv.id : null
   useEffect(() => {
     groupChReadyRef.current = false
     groupChRef.current = null
@@ -3313,7 +3397,7 @@ export default function DevLoungeModal({
     }
 
     // Music commands (/play lofi, /skip, ...) run the player instead of sending a message
-    if (!editingId && textToSend.startsWith('/') && (activeMusic ? groupMusicCommandRef : musicCommandRef).current(textToSend)) {
+    if (!editingId && textToSend.startsWith('/') && (activeMusic && activeConv ? groupMusicCommandRef : musicCommandRef).current(textToSend)) {
       setInputText('')
       setMentionQuery(null)
       lastTypingSent.current = 0
@@ -3883,7 +3967,7 @@ export default function DevLoungeModal({
 
   // The player is portaled straight to <body>, outside the modal, so it keeps playing after the lounge closes
   const musicEl = createPortal(
-    <LoungeMusic open={!!open} suppressed={!!open && activeMusic} covered={!!open && (needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet || peopleOpen || groupInfoOpen || !!viewNoteId)} others={musicOthers} onNowPlaying={handleNowPlaying} commandRef={musicCommandRef} slotRef={musicSlotRef} />,
+    chillPlayer ? null : <LoungeMusic open={!!open} suppressed={!!open && activeMusic} covered={!!open && (needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet || peopleOpen || groupInfoOpen || !!viewNoteId)} others={musicOthers} onNowPlaying={handleNowPlaying} commandRef={musicCommandRef} slotRef={musicSlotRef} />,
     document.body,
   )
 
@@ -4367,6 +4451,28 @@ export default function DevLoungeModal({
             </div>
             <div className={`lounge-music-slot${activeMusic ? ' is-collapsed' : ''}`} ref={musicSlotRef} aria-hidden="true" />
             <div className="lounge-group-music-slot" ref={setGroupMusicSlot} />
+            {!showGames && (
+              <button
+                type="button"
+                className={`lounge-iconbtn lounge-chill-toggle${!chillHidden ? ' is-active' : ''}`}
+                onClick={toggleChillHidden}
+                aria-pressed={!chillHidden}
+                aria-label={chillHidden ? 'Show chill zone' : 'Hide chill zone'}
+                title={chillHidden ? 'Show chill zone' : 'Hide chill zone'}
+              >
+                ☕
+              </button>
+            )}
+            <button
+              type="button"
+              className={`lounge-iconbtn lounge-games-toggle${showGames ? ' is-active' : ''}`}
+              onClick={() => setGamesOpen((v) => !v)}
+              aria-pressed={showGames}
+              aria-label={showGames ? 'Hide games' : 'Show games'}
+              title={showGames ? 'Hide games' : 'Show games'}
+            >
+              🎮
+            </button>
             <button
               type="button"
               className="lounge-bgm-toggle"
@@ -4394,7 +4500,7 @@ export default function DevLoungeModal({
           </div>
         </header>
 
-        <div className="lounge-split">
+        <div className={`lounge-split${showSide ? '' : ' is-solo'}${showSide && !showGames ? ' has-chill' : ''}`}>
         <section className="lounge-chat" aria-label="Chat">
         <div className="lounge-stories" ref={storiesRef}>
           {stories.map((s) => {
@@ -4549,13 +4655,13 @@ export default function DevLoungeModal({
               >
                 <PinIcon />
               </button>
-              {activeConv.kind === 'group' && (
-                <button
+              {!chillPlayer && (
+              <button
                   type="button"
                   className={`lounge-chip${activeMusic ? ' is-active' : ''}`}
                   onClick={() => toggleGroupMusic(activeConv.id)}
                   aria-pressed={activeMusic}
-                  title={activeMusic ? 'Hide this group\'s music player' : 'Show this group\'s music player at the top'}
+                  title={activeMusic ? 'Hide this chat\'s music player' : 'Show this chat\'s music player at the top'}
                 >
                   <NoteIcon />
                   Music
@@ -4569,7 +4675,7 @@ export default function DevLoungeModal({
 
         {/* The group's music player is drawn up in the header, beside the speaker button.
             It is still rendered by this component, so its queue, volume and playback are untouched. */}
-        {activeMusic && activeConv && groupMusicSlot &&
+        {activeMusic && activeConv && (chillPlayer ? chillMusicSlot : groupMusicSlot) &&
           createPortal(
             <>
               <LoungeMusic
@@ -4579,15 +4685,33 @@ export default function DevLoungeModal({
                 open={!!open}
                 covered={needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet || peopleOpen || groupInfoOpen || !!viewNoteId}
                 others={groupMusicOthers}
-                liveLabel="Playing in this group"
+                liveLabel={activeConv.kind === 'dm' ? 'Playing in this chat' : 'Playing in this group'}
                 onNowPlaying={(t) => handleGroupNowPlaying(activeConv.id, t)}
                 commandRef={groupMusicCommandRef}
+                pinned={chillPlayer}
               />
-              <button type="button" className="lounge-chat-head__hide" onClick={() => toggleGroupMusic(activeConv.id)} aria-label="Hide music player" title="Hide music player">
+              {!chillPlayer && <button type="button" className="lounge-chat-head__hide" onClick={() => toggleGroupMusic(activeConv.id)} aria-label="Hide music player" title="Hide music player">
                 <X size={11} weight="bold" />
-              </button>
+              </button>}
             </>,
-            groupMusicSlot,
+            (chillPlayer ? chillMusicSlot : groupMusicSlot) as HTMLDivElement,
+          )}
+
+        {/* Global chat on desktop: the Chill Zone plays the lounge music (same queue and /play commands) */}
+        {chillPlayer && !activeConv && chillMusicSlot &&
+          createPortal(
+            <LoungeMusic
+              key="global"
+              variant="group"
+              storageKey={MUSIC_KEY}
+              open={!!open}
+              covered={needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet || peopleOpen || groupInfoOpen || !!viewNoteId}
+              others={musicOthers}
+              onNowPlaying={handleNowPlaying}
+              commandRef={musicCommandRef}
+              pinned
+            />,
+            chillMusicSlot,
           )}
 
         <div className="lounge-feed" onClick={() => { setActiveMsgId(null); setPickerFor(null); setWhoFor(null) }}>
@@ -4849,8 +4973,20 @@ export default function DevLoungeModal({
         </div>
         </section>
 
-        <aside className="lounge-side" aria-label="Games">
-          <div className="lounge-games">
+        <aside className={`lounge-side${showSide ? '' : ' is-hidden'}`} aria-label={showGames ? 'Games' : 'Chill zone'}>
+          {!showGames && (
+            <ChillZone
+              members={chillMembers}
+              renderAvatar={(seed, size) => <LoungeAvatar seed={seed} size={size} />}
+              onShare={shareToChat}
+              shareActivity={shareActivity}
+              onToggleActivity={toggleShareActivity}
+              onOpenGames={() => setGamesOpen(true)}
+              onHide={toggleChillHidden}
+              musicSlot={chillPlayer ? <div className="lounge-chill-music-slot" ref={setChillMusicSlot} /> : null}
+            />
+          )}
+          <div className={`lounge-games${showGames ? '' : ' is-hidden'}`}>
             <LoungeGames
               deviceId={deviceId}
               userName={userName}
@@ -4862,6 +4998,7 @@ export default function DevLoungeModal({
               onShare={shareToChat}
               onAnnounce={(game, score) => announceScore(score, 0, game)}
               open={open}
+              onPlayingChange={setGamePlaying}
               trivia={
                 <DevTrivia
                   deviceId={deviceId}

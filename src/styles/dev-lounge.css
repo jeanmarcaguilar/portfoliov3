@@ -5914,3 +5914,811 @@ button.lounge-note-bubble:focus-visible { outline: 2px solid var(--orange); outl
   border-radius: 999px;
   padding: 4px 12px;
 }
+
+/* ===================================================================
+   GAME LOBBY + AESTHETIC REFRESH
+   Game picker (cards), game bar, and softer, more polished game cards.
+   Appended last on purpose so it layers over the earlier rules.
+   Works in light and dark mode through the existing tokens.
+   =================================================================== */
+
+.lounge-modal {
+  --l-radius-lg: 24px;
+  --l-radius-md: 18px;
+  --l-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --l-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---------- Lobby ---------- */
+.lounge-lobby {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  width: 100%;
+  animation: lx-rise 0.45s var(--l-ease) both;
+}
+
+.lounge-lobby__hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 26px 24px 22px;
+  border-radius: var(--l-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--orange) 26%, var(--line));
+  background:
+    radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, #ff5d8f 26%, transparent) 0%, transparent 60%),
+    radial-gradient(80% 120% at 0% 100%, color-mix(in srgb, #ffb02d 24%, transparent) 0%, transparent 62%),
+    var(--l-surface);
+  box-shadow: 0 18px 38px -24px rgba(255, 93, 122, 0.55);
+}
+.lounge-lobby__hero::after {
+  content: '🎮';
+  position: absolute;
+  right: 14px;
+  top: 8px;
+  z-index: -1;
+  font-size: 86px;
+  line-height: 1;
+  opacity: 0.14;
+  transform: rotate(14deg);
+  pointer-events: none;
+}
+.lounge-lobby__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--orange) 16%, transparent);
+  color: var(--orange);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.lounge-lobby__title {
+  margin: 12px 0 6px;
+  font-size: clamp(22px, 2.2vw, 28px);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: var(--navy);
+}
+.lounge-lobby__sub {
+  margin: 0;
+  max-width: 44ch;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.lounge-lobby__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+.lounge-lobby__cta .lounge-game__btn { width: auto; flex: 0 1 auto; padding-inline: 18px; }
+
+.lounge-lobby__sec { display: flex; flex-direction: column; gap: 10px; }
+.lounge-lobby__sechead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 4px;
+}
+.lounge-lobby__sechead h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--navy);
+}
+.lounge-lobby__sechead span { font-size: 11.5px; color: var(--muted); }
+
+.lounge-lobby__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* ---------- Game card ---------- */
+.lounge-gcard {
+  --hue: var(--orange);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 168px;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--l-radius-md);
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--hue) 13%, transparent) 0%, transparent 62%),
+    var(--l-surface);
+  color: var(--navy);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -16px rgba(6, 12, 26, 0.5);
+  transition:
+    transform 0.28s var(--l-spring),
+    border-color 0.2s,
+    box-shadow 0.28s var(--l-ease);
+  animation: lx-rise 0.5s var(--l-ease) both;
+}
+.lounge-lobby__grid .lounge-gcard:nth-child(2) { animation-delay: 0.05s; }
+.lounge-lobby__grid .lounge-gcard:nth-child(3) { animation-delay: 0.1s; }
+.lounge-lobby__grid .lounge-gcard:nth-child(4) { animation-delay: 0.15s; }
+.lounge-lobby__grid .lounge-gcard:nth-child(5) { animation-delay: 0.2s; }
+
+.lounge-gcard:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--hue) 55%, var(--line));
+  box-shadow:
+    0 20px 32px -20px color-mix(in srgb, var(--hue) 70%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--hue) 12%, transparent);
+}
+.lounge-gcard:active { transform: translateY(-1px) scale(0.985); }
+.lounge-gcard:focus-visible { outline: 2px solid var(--hue); outline-offset: 3px; }
+
+.lounge-gcard__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 4px;
+  border-radius: 15px;
+  font-size: 24px;
+  line-height: 1;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--hue) 34%, var(--l-surface)), color-mix(in srgb, var(--hue) 10%, var(--l-surface)));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 8px 16px -10px color-mix(in srgb, var(--hue) 80%, transparent);
+  transition: transform 0.35s var(--l-spring);
+}
+.lounge-gcard:hover .lounge-gcard__icon { transform: rotate(-8deg) scale(1.1); }
+
+.lounge-gcard__name {
+  font-size: 14.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.lounge-gcard__blurb {
+  flex: 1 1 auto;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lounge-gcard__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+}
+.lounge-gcard__tag {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hue) 14%, transparent);
+  color: color-mix(in srgb, var(--hue) 78%, var(--navy));
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.lounge-gcard__go {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--hue);
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.2s, transform 0.28s var(--l-ease);
+}
+.lounge-gcard:hover .lounge-gcard__go,
+.lounge-gcard:focus-visible .lounge-gcard__go { opacity: 1; transform: none; }
+.lounge-gcard__status {
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #0e9f6e;
+}
+.lounge-gcard__status.is-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--hue);
+}
+.lounge-gcard__status.is-live::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--hue);
+  animation: lx-pulse 1.4s ease-in-out infinite;
+}
+.lounge-gcard.is-live { border-color: color-mix(in srgb, var(--hue) 60%, var(--line)); }
+
+@keyframes lx-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hue) 55%, transparent); }
+  50% { box-shadow: 0 0 0 6px transparent; }
+}
+
+/* ---------- In-game bar: back button + quick game switcher ---------- */
+.lounge-gbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--l-surface) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: var(--l-card-shadow);
+  flex-shrink: 0;
+}
+.lounge-gbar__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  height: 36px;
+  padding: 0 14px 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--l-accent);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 18px -12px rgba(255, 93, 122, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: transform 0.2s var(--l-spring), filter 0.2s;
+}
+.lounge-gbar__back:hover { transform: translateX(-2px); filter: brightness(1.06); }
+.lounge-gbar__back:active { transform: scale(0.96); }
+
+.lounge-gdock {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px;
+}
+.lounge-gdock::-webkit-scrollbar { display: none; }
+.lounge-gdock__chip {
+  --hue: var(--orange);
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  filter: grayscale(0.6);
+  opacity: 0.75;
+  transition: transform 0.2s var(--l-spring), background 0.18s, filter 0.18s, opacity 0.18s;
+}
+.lounge-gdock__chip:hover { opacity: 1; filter: none; transform: translateY(-2px); background: color-mix(in srgb, var(--hue) 14%, transparent); }
+.lounge-gdock__chip.is-active {
+  opacity: 1;
+  filter: none;
+  background: color-mix(in srgb, var(--hue) 20%, var(--l-surface));
+  border-color: color-mix(in srgb, var(--hue) 55%, transparent);
+  box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--hue) 90%, transparent);
+}
+.lounge-gdock__chip.has-dot::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5d7a;
+  box-shadow: 0 0 0 2px var(--l-surface);
+}
+
+/* ---------- Polish for the games themselves ---------- */
+.lounge-side .lounge-game,
+.lounge-side .lounge-board {
+  border-radius: var(--l-radius-lg);
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(110% 70% at 100% 0%, color-mix(in srgb, var(--orange) 7%, transparent) 0%, transparent 60%),
+    var(--l-surface);
+  box-shadow: 0 14px 30px -24px rgba(6, 12, 26, 0.55);
+}
+
+.lounge-side .lounge-game__badge {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--orange) 30%, var(--l-surface)), color-mix(in srgb, #ff5d8f 16%, var(--l-surface)));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 14px 26px -14px rgba(255, 93, 122, 0.7);
+}
+.lounge-side .lounge-game__title {
+  letter-spacing: -0.02em;
+  background: linear-gradient(120deg, var(--navy) 30%, var(--orange));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.lounge-side .lounge-game__eyebrow { letter-spacing: 0.1em; }
+
+.lounge-side .lounge-game__facts li {
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--tint) 70%, var(--l-surface));
+}
+
+.lounge-side .lounge-game__opt {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--tint) 55%, var(--l-surface));
+  transition: transform 0.22s var(--l-spring), border-color 0.18s, background 0.18s, box-shadow 0.22s var(--l-ease);
+}
+.lounge-side .lounge-game__opt:hover:not(:disabled) {
+  transform: translateX(4px);
+  border-color: color-mix(in srgb, var(--orange) 55%, var(--line));
+  background: color-mix(in srgb, var(--orange) 8%, var(--l-surface));
+  box-shadow: 0 10px 20px -16px rgba(255, 93, 122, 0.8);
+}
+.lounge-side .lounge-game__key {
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--orange) 14%, var(--l-surface));
+  color: var(--orange);
+}
+
+.lounge-side .lounge-board__row {
+  border-radius: 14px;
+  transition: transform 0.2s var(--l-ease), background 0.2s;
+}
+.lounge-side .lounge-board__row:hover { transform: translateX(3px); }
+
+.lounge-side .lounge-wyr__opt { border-radius: 16px; transition: transform 0.22s var(--l-spring), border-color 0.18s; }
+.lounge-side .lounge-wyr__opt:hover:not(:disabled) { transform: translateY(-2px); }
+
+.lounge-side .lounge-invite {
+  border-radius: var(--l-radius-md);
+  border: 1px solid color-mix(in srgb, #f43f5e 40%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, #f43f5e 12%, var(--l-surface)), var(--l-surface));
+  box-shadow: 0 14px 26px -18px rgba(244, 63, 94, 0.7);
+}
+
+/* nicer scrollbar for the games column */
+.lounge-side .lounge-games { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+
+/* keep the lobby cards readable when the column is narrow */
+@media (max-width: 1100px) {
+  .lounge-lobby__grid { grid-template-columns: minmax(0, 1fr); }
+  .lounge-gcard { min-height: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lounge-lobby,
+  .lounge-gcard,
+  .lounge-gcard__status.is-live::before { animation: none; }
+  .lounge-gcard,
+  .lounge-gcard__icon,
+  .lounge-gdock__chip,
+  .lounge-gbar__back,
+  .lounge-side .lounge-game__opt { transition: none; }
+}
+/* ===================================================
+   GAMES PANEL HIDDEN BY DEFAULT
+   Chat takes the full width until a game is opened (or the 🎮 button is tapped)
+   =================================================== */
+.lounge-split.is-solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+.lounge-split.is-solo .lounge-chat {
+  max-width: none;
+  width: 100%;
+  margin-inline: 0;
+}
+/* with the games hidden, messages can use the extra room */
+.lounge-split.is-solo .lounge-msg__bubble,
+.lounge-split.is-solo .lounge-msg--me .lounge-msg__bubble { max-width: min(900px, 100%); }
+.lounge-split.is-solo .lounge-msg__content { max-width: min(960px, calc(100% - 44px)); }
+
+.lounge-games-toggle { font-size: 15px; line-height: 1; }
+
+/* the games panel is already hidden on small screens, so the button isn't needed there */
+@media (max-width: 900px) {
+  .lounge-games-toggle,
+  .lounge-chill-toggle { display: none; }
+}
+
+/* ===================================================
+   CHILL ZONE: the calm side panel shown when the games are closed
+   =================================================== */
+.lounge-chill-toggle { font-size: 15px; line-height: 1; }
+
+.lounge-side .lounge-chill {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--orange) 10%, transparent) 0%, transparent 60%),
+    var(--l-surface);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  isolation: isolate;
+}
+.lounge-chill > * { position: relative; z-index: 1; flex-shrink: 0; }
+
+/* ambient layer: slow drifting glows and a few floating motes (CSS only) */
+.lounge-chill .lounge-chill__ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.lounge-chill__orb {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  filter: blur(46px);
+  opacity: 0.32;
+  animation: lounge-chill-drift 22s ease-in-out infinite alternate;
+}
+.lounge-chill__orb.is-a { top: -70px; right: -60px; background: #ff8a1f; }
+.lounge-chill__orb.is-b { bottom: 10%; left: -90px; background: #7c8cff; animation-duration: 28s; animation-delay: -6s; }
+.lounge-chill__orb.is-c { bottom: -80px; right: 10%; width: 180px; height: 180px; background: #ff5d8f; animation-duration: 25s; animation-delay: -12s; opacity: 0.22; }
+.lounge-chill__mote {
+  position: absolute;
+  bottom: -10px;
+  left: calc(var(--i) * 10% + 3%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--navy) 35%, transparent);
+  opacity: 0;
+  animation: lounge-chill-float calc(14s + var(--i) * 1.7s) linear infinite;
+  animation-delay: calc(var(--i) * -2.3s);
+}
+@keyframes lounge-chill-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(-26px, 30px, 0) scale(1.15); }
+}
+@keyframes lounge-chill-float {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  12% { opacity: 0.5; }
+  85% { opacity: 0.35; }
+  100% { transform: translateY(-460px) translateX(14px); opacity: 0; }
+}
+
+.lounge-chill__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.lounge-chill__eyebrow {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+.lounge-chill__title { margin: 2px 0 0; font-size: 20px; line-height: 1.2; color: var(--navy); }
+.lounge-chill__x {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+.lounge-chill__x:hover { background: var(--tint); color: var(--navy); }
+
+.lounge-chill__card {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--l-surface) 80%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.lounge-chill__row-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.lounge-chill__label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lounge-chill__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--tint);
+  color: var(--navy);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.lounge-chill__muted { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.lounge-chill__empty { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.lounge-chill__empty code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--tint);
+  color: var(--navy);
+  font-size: 12px;
+}
+
+/* equalizer bars */
+.lounge-chill__eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; flex-shrink: 0; }
+.lounge-chill__eq i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--l-accent, var(--orange));
+  transform-origin: bottom;
+  animation: lounge-chill-eq 1.1s ease-in-out infinite;
+}
+.lounge-chill__eq i:nth-child(2) { animation-delay: -0.4s; animation-duration: 0.9s; }
+.lounge-chill__eq i:nth-child(3) { animation-delay: -0.2s; animation-duration: 1.3s; }
+.lounge-chill__eq i:nth-child(4) { animation-delay: -0.7s; animation-duration: 1s; }
+.lounge-chill__eq.is-sm { height: 12px; }
+.lounge-chill__eq.is-sm i { width: 2px; }
+@keyframes lounge-chill-eq {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
+}
+
+.lounge-chill__song { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lounge-chill__song-title {
+  min-width: 0;
+  font-size: 14.5px;
+  color: var(--navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lounge-chill__listeners { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.lounge-chill__stack { display: flex; }
+.lounge-chill__stack-av {
+  display: block;
+  margin-left: -8px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--l-surface);
+}
+.lounge-chill__stack-av:first-child { margin-left: 0; }
+.lounge-chill__also { list-style: none; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px dashed var(--line); display: grid; gap: 6px; }
+.lounge-chill__also li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lounge-chill__also em { margin-left: auto; font-style: normal; font-weight: 600; color: var(--navy); }
+
+/* presence */
+.lounge-chill__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--l-good, #10b981); }
+.lounge-chill__pill.is-live .lounge-chill__dot { animation: lounge-chill-pulse 2.4s ease-in-out infinite; }
+@keyframes lounge-chill-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--l-good, #10b981) 55%, transparent); }
+  50% { box-shadow: 0 0 0 5px transparent; }
+}
+.lounge-chill__people { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.lounge-chill__person { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lounge-chill__av { position: relative; flex-shrink: 0; line-height: 0; }
+.lounge-chill__dot.is-badge {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  box-shadow: 0 0 0 2px var(--l-surface);
+}
+.lounge-chill__who { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.lounge-chill__who b { font-size: 13px; color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lounge-chill__who small { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lounge-chill__more { margin: 8px 0 0; font-size: 11.5px; color: var(--muted); text-align: center; }
+
+/* conversation starter */
+.lounge-chill__starter {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: var(--navy);
+  animation: lounge-chill-in 0.35s ease both;
+}
+@keyframes lounge-chill-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.lounge-chill__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.lounge-chill__starter + .lounge-chill__actions { margin-top: 0; }
+.lounge-chill__btn {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--l-accent, var(--orange));
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s, opacity 0.18s;
+}
+.lounge-chill__btn:hover:not(:disabled) { transform: translateY(-1px); }
+.lounge-chill__btn:disabled { opacity: 0.6; cursor: default; }
+.lounge-chill__btn.is-ghost { background: var(--tint); color: var(--navy); }
+.lounge-chill__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.lounge-chill__link:hover { color: var(--navy); }
+
+/* footer: privacy switch + way back to the games */
+.lounge-chill__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 4px; }
+.lounge-chill__switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.lounge-chill__switch input { position: absolute; opacity: 0; pointer-events: none; }
+.lounge-chill__track {
+  position: relative;
+  width: 30px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: background 0.2s;
+}
+.lounge-chill__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+.lounge-chill__switch input:checked + .lounge-chill__track { background: var(--l-good, #10b981); }
+.lounge-chill__switch input:checked + .lounge-chill__track::after { transform: translateX(12px); }
+.lounge-chill__switch input:focus-visible + .lounge-chill__track { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lounge-chill__orb,
+  .lounge-chill__mote,
+  .lounge-chill__eq i,
+  .lounge-chill__dot,
+  .lounge-chill__starter { animation: none !important; }
+  .lounge-chill__mote { display: none; }
+  .lounge-chill__eq i { transform: scaleY(0.6); }
+}
+/* ===================================================
+   CHILL ZONE: fixed-width side column when it is open
+   The width never changes with the content; long text wraps or truncates inside.
+   (games keep their own width)
+   =================================================== */
+.lounge-split.has-chill {
+  grid-template-columns: minmax(0, 1fr) 560px;
+}
+.lounge-split.has-chill .lounge-side {
+  width: 560px;
+  min-width: 560px;
+  max-width: 560px;
+}
+/* the panel always fills the column and can't grow from its content */
+.lounge-side .lounge-chill {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.lounge-chill > * { min-width: 0; max-width: 100%; }
+.lounge-chill__title,
+.lounge-chill__song-title,
+.lounge-chill__muted,
+.lounge-chill__empty,
+.lounge-chill__starter {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.lounge-chill__song-title { min-width: 0; }
+@media (max-width: 1100px) {
+  .lounge-split.has-chill { grid-template-columns: minmax(0, 1fr) 440px; }
+  .lounge-split.has-chill .lounge-side { width: 440px; min-width: 440px; max-width: 440px; }
+}
+@media (max-width: 900px) {
+  .lounge-split.has-chill { grid-template-columns: minmax(0, 1fr); }
+  .lounge-split.has-chill .lounge-side { width: auto; min-width: 0; max-width: none; }
+}
+
+/* ===================================================
+   CHILL ZONE PLAYS THE MUSIC (desktop)
+   The open chat's player (global, direct chat or group) sits at the top of the Chill Zone.
+   Phones/tablets hide the Chill Zone and keep the header pill as before.
+   =================================================== */
+.lounge-split.has-chill .lounge-side { flex-direction: column; gap: 12px; }
+.lounge-split.has-chill .lounge-side .lounge-chill {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+}
+.lounge-chill-music-slot {
+  position: relative;
+  z-index: 5;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+}
+.lounge-chill-music-slot .lounge-music.is-inline {
+  --music-w: 100%;
+  width: 100%;
+  position: relative;
+}
+.lounge-chill-music-slot .lounge-music__pill { width: 100%; }
+/* the playlist opens inside the panel instead of floating over the chat */
+.lounge-chill-music-slot .lounge-music__pop {
+  position: static;
+  width: 100%;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin-top: 10px;
+  box-shadow: none;
+}
+
+/* ===================================================
+   DESKTOP CHILL ZONE: the music queue replaces the pill and the conversation starter
+   - the pill is hidden (kept in the DOM, off-screen, so the YouTube player keeps playing)
+   - the playlist panel is always open, inline at the top of the side panel
+   - the panel sits where the conversation starter card used to be (ChillZone renders the slot)
+   Phones/tablets (<= 900px) don't render the Chill Zone player, so they keep the pill as before.
+   =================================================== */
+.lounge-music.is-pinned .lounge-music__pill {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
+}
+.lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__pop {
+  margin-top: 0;
+  max-height: none;
+  padding: 16px 18px;
+  border-radius: 24px;
+  animation: none;
+  box-shadow: 0 18px 40px -26px rgba(6, 12, 26, 0.35);
+}
+.lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__queue { max-height: 24vh; }
+.lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__add input { flex: 1 1 auto; min-width: 0; }

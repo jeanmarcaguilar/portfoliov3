@@ -3973,18 +3973,55 @@ function LastLetterGame({ ctx, ll }: { ctx: GameCtx; ll: LL }) {
 
 type TabId = 'trivia' | 'output' | 'bug' | 'word' | 'chain' | 'hilo' | 'typing' | 'emoji' | 'wyr' | 'duels'
 
-const TABS: { id: TabId; icon: string; label: string }[] = [
-  { id: 'trivia', icon: '🧠', label: 'Trivia' },
-  { id: 'output', icon: '🔮', label: 'Output' },
-  { id: 'bug', icon: '🐛', label: 'Bug Hunt' },
-  { id: 'word', icon: '🟩', label: 'Dev Word' },
-  { id: 'chain', icon: '🔤', label: 'Last Letter' },
-  { id: 'hilo', icon: '📈', label: 'Hi-Lo' },
-  { id: 'typing', icon: '⌨️', label: 'Typing' },
-  { id: 'emoji', icon: '🎭', label: 'Emoji' },
-  { id: 'wyr', icon: '🗳️', label: 'Rather' },
-  { id: 'duels', icon: '⚔️', label: 'Duels' },
+type GameKind = 'daily' | 'quick' | 'live'
+
+interface GameMeta {
+  id: TabId
+  icon: string
+  label: string
+  blurb: string
+  kind: GameKind
+  hue: string // accent colour of the card
+}
+
+const GAMES: GameMeta[] = [
+  { id: 'trivia', icon: '🧠', label: 'Dev Trivia', blurb: '10 questions against the clock. Build a streak for bonus points.', kind: 'daily', hue: '#ff7a1a' },
+  { id: 'word', icon: '🟩', label: 'Dev Word', blurb: 'One five-letter dev word a day, the same for everyone.', kind: 'daily', hue: '#22c55e' },
+  { id: 'output', icon: '🔮', label: 'Guess the Output', blurb: 'Read the snippet and say what it prints. JavaScript loves a twist.', kind: 'daily', hue: '#8b5cf6' },
+  { id: 'bug', icon: '🐛', label: 'Bug Hunt', blurb: 'Every snippet hides one bug. Tap the guilty line.', kind: 'daily', hue: '#ef4444' },
+  { id: 'wyr', icon: '🗳️', label: 'Would You Rather', blurb: 'Three dev dilemmas a day. See how the lounge splits.', kind: 'daily', hue: '#06b6d4' },
+  { id: 'hilo', icon: '📈', label: 'Higher or Lower', blurb: 'Release years and ports. One wrong guess ends the run.', kind: 'quick', hue: '#3b82f6' },
+  { id: 'typing', icon: '⌨️', label: 'Typing Sprint', blurb: 'Type real code fast and clean. Brackets included.', kind: 'quick', hue: '#f59e0b' },
+  { id: 'emoji', icon: '🎭', label: 'Emoji Decoder', blurb: 'Guess the tool or language from a few emojis.', kind: 'quick', hue: '#ec4899' },
+  { id: 'chain', icon: '🔤', label: 'Last Letter', blurb: 'Word chains with friends in a live lobby, or against a bot.', kind: 'live', hue: '#14b8a6' },
+  { id: 'duels', icon: '⚔️', label: 'Duels', blurb: 'Challenge a member to Tic-Tac-Toe or a Quiz Duel.', kind: 'live', hue: '#f43f5e' },
 ]
+
+const TABS = GAMES
+
+const LOBBY_SECTIONS: { kind: GameKind; title: string; sub: string }[] = [
+  { kind: 'daily', title: 'Daily challenges', sub: 'Fresh every 24 hours' },
+  { kind: 'quick', title: 'Quick play', sub: 'Jump in, no setup' },
+  { kind: 'live', title: 'Play with the lounge', sub: 'Live against other members' },
+]
+
+const KIND_LABEL: Record<GameKind, string> = { daily: 'Daily', quick: 'Quick play', live: 'Multiplayer' }
+
+// What to show on a game card: your best score today, or "Played" for the one-try-a-day games
+const ARCADE_KEY: Partial<Record<TabId, string>> = { output: 'output', bug: 'bug', word: 'word', hilo: 'hilo', typing: 'typing', emoji: 'emoji' }
+function cardStatus(id: TabId): string {
+  const day = gameDay()
+  if (id === 'trivia') {
+    const best = Number(readLS(`lounge_trivia_best_${day}`)) || 0
+    return best > 0 ? `Best ${best}` : ''
+  }
+  if (id === 'wyr') return readLS(`lounge_wyr_${day}`) ? 'Voted ✓' : ''
+  const key = ARCADE_KEY[id]
+  if (!key) return ''
+  if (id === 'word' && readLS(`lounge_arcade_daily_word_${day}`)) return 'Played ✓'
+  const best = Number(readLS(`lounge_arcade_best_${key}_${day}`)) || 0
+  return best > 0 ? `Best ${best}` : ''
+}
 
 const INVITE_TTL = 30000
 
@@ -4000,18 +4037,25 @@ export interface LoungeGamesProps {
   onShare: (text: string) => void
   onAnnounce: (game: string, score: number) => void
   open?: boolean // the lounge is open; closing it leaves any Last Letter lobby or match
+  onPlayingChange?: (playing: boolean) => void // true while a game is open or a challenge is waiting
 }
 
 export default function LoungeGames(props: LoungeGamesProps) {
-  const { deviceId, userName, avatarSalt, refreshKey, members, bus, triviaBank, trivia, onShare, onAnnounce, open = true } = props
+  const { deviceId, userName, avatarSalt, refreshKey, members, bus, triviaBank, trivia, onShare, onAnnounce, open = true, onPlayingChange } = props
 
-  const [tab, setTabState] = useState<TabId>(() => {
-    const saved = readLS('lounge_games_tab')
-    return TABS.some((t) => t.id === saved) ? (saved as TabId) : 'trivia'
-  })
-  const setTab = (id: TabId) => {
+  // null = the game lobby (pick what to play)
+  const [tab, setTabState] = useState<TabId | null>(null)
+  const setTab = (id: TabId | null) => {
     setTabState(id)
-    writeLS('lounge_games_tab', id)
+    if (id) writeLS('lounge_games_tab', id)
+  }
+  const lastPlayed = (() => {
+    const saved = readLS('lounge_games_tab')
+    return GAMES.find((g) => g.id === saved) ?? null
+  })()
+  const surprise = () => {
+    const pool = GAMES.filter((g) => g.kind !== 'live')
+    setTab(pool[Math.floor(Math.random() * pool.length)].id)
   }
 
   const [match, setMatch] = useState<Match | null>(null)
@@ -4119,23 +4163,41 @@ export default function LoungeGames(props: LoungeGamesProps) {
   // Last Letter lobbies live here so they survive switching tabs
   const ll = useLastLetter(ctx, bus, open, () => setTab('chain'))
 
+  // Tell the modal whether a game is open (or a challenge is waiting) so it can show/hide the panel
+  useEffect(() => {
+    onPlayingChange?.(tab !== null || !!invite || !!match)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, invite, match])
+
   return (
     <>
-      <div className="lounge-gtabs" role="tablist" aria-label="Pick a game">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            className={`lounge-gtab${tab === t.id ? ' is-active' : ''}${(t.id === 'duels' && (match || invite) && tab !== 'duels') || (t.id === 'chain' && ll.room && tab !== 'chain') ? ' has-dot' : ''}`}
-            onClick={() => setTab(t.id)}
-          >
-            <span aria-hidden="true">{t.icon}</span>
-            {t.label}
+      {tab === null ? null : (
+        <div className="lounge-gbar">
+          <button type="button" className="lounge-gbar__back" onClick={() => setTab(null)} aria-label="Back to all games">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            All games
           </button>
-        ))}
-      </div>
+          <div className="lounge-gdock" role="tablist" aria-label="Switch game">
+            {GAMES.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === g.id}
+                aria-label={g.label}
+                title={g.label}
+                style={{ '--hue': g.hue } as CSSProperties}
+                className={`lounge-gdock__chip${tab === g.id ? ' is-active' : ''}${(g.id === 'duels' && (match || invite) && tab !== 'duels') || (g.id === 'chain' && ll.room && tab !== 'chain') ? ' has-dot' : ''}`}
+                onClick={() => setTab(g.id)}
+              >
+                <span aria-hidden="true">{g.icon}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {invite && (
         <div className="lounge-invite" role="alert">
@@ -4150,6 +4212,60 @@ export default function LoungeGames(props: LoungeGamesProps) {
               Decline
             </button>
           </div>
+        </div>
+      )}
+
+      {tab === null && (
+        <div className="lounge-lobby">
+          <div className="lounge-lobby__hero">
+            <span className="lounge-lobby__eyebrow">Game room</span>
+            <h3 className="lounge-lobby__title">What are we playing?</h3>
+            <p className="lounge-lobby__sub">Pick a game below. Scores reset every 24 hours, so everyone gets a fresh shot.</p>
+            <div className="lounge-lobby__cta">
+              <button type="button" className="lounge-game__btn" onClick={surprise}>
+                🎲 Surprise me
+              </button>
+              {lastPlayed && (
+                <button type="button" className="lounge-game__btn is-ghost" onClick={() => setTab(lastPlayed.id)}>
+                  {lastPlayed.icon} Continue {lastPlayed.label}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {LOBBY_SECTIONS.map((sec) => (
+            <section key={sec.kind} className="lounge-lobby__sec" aria-label={sec.title}>
+              <div className="lounge-lobby__sechead">
+                <h4>{sec.title}</h4>
+                <span>{sec.sub}</span>
+              </div>
+              <div className="lounge-lobby__grid">
+                {GAMES.filter((g) => g.kind === sec.kind).map((g) => {
+                  const status = cardStatus(g.id)
+                  const live = (g.id === 'duels' && (match || invite)) || (g.id === 'chain' && ll.room)
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      className={`lounge-gcard${live ? ' is-live' : ''}`}
+                      style={{ '--hue': g.hue } as CSSProperties}
+                      onClick={() => setTab(g.id)}
+                    >
+                      <span className="lounge-gcard__icon" aria-hidden="true">
+                        {g.icon}
+                      </span>
+                      <span className="lounge-gcard__name">{g.label}</span>
+                      <span className="lounge-gcard__blurb">{g.blurb}</span>
+                      <span className="lounge-gcard__foot">
+                        <span className="lounge-gcard__tag">{KIND_LABEL[g.kind]}</span>
+                        {live ? <span className="lounge-gcard__status is-live">In progress</span> : status ? <span className="lounge-gcard__status">{status}</span> : <span className="lounge-gcard__go">Play →</span>}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 
