@@ -5893,3 +5893,24 @@ button.lounge-note-bubble:focus-visible { outline: 2px solid var(--orange); outl
 .lounge-notereact__chip.is-mine { border-color: var(--orange); background: color-mix(in srgb, var(--orange) 14%, var(--l-surface)); }
 .lounge-notereact__chip.is-mine b { color: var(--orange); }
 .lounge-story-react { font-size: 10px; font-weight: 700; color: var(--muted); line-height: 1; white-space: nowrap; }
+
+/* Group notices: "X added Y" / "X accepted Y into the group" */
+.lounge-sys {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  padding: 6px 12px;
+  animation: lx-msg-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.lounge-sys span {
+  max-width: 90%;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--tint) 70%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 12px;
+}

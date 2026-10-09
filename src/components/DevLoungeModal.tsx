@@ -129,6 +129,7 @@ interface Message {
   avatarSeed: string
   isMe?: boolean
   authorId: string // the sender's device id (used for group nicknames)
+  system?: boolean // a group notice (member added / approved), shown centered instead of as a bubble
   replyTo?: string | null
   edited?: boolean
   reactions: Reaction[]
@@ -168,6 +169,10 @@ interface JoinRequest {
   by: string // the member who asked
   at: string
 }
+
+// Group notices ("Alex added Sam", "Admin approved Sam") are stored as normal messages whose text starts with this marker
+const SYS_PREFIX = '::sys:: '
+const isSysText = (t: unknown) => typeof t === 'string' && t.startsWith(SYS_PREFIX)
 
 const PINNED_CONVS_KEY = 'lounge_pinned_chats'
 const MAX_PINNED_CHATS = 2
@@ -2446,10 +2451,11 @@ export default function DevLoungeModal({
         location: m.location,
         createdAt: m.created_at,
         time: formatTimeAgo(m.created_at),
-        text: m.text,
+        text: isSysText(m.text) ? m.text.slice(SYS_PREFIX.length) : m.text,
+        system: isSysText(m.text),
         avatarSeed: m.avatar_seed,
         // Prefer device ownership; fall back to name for messages sent before device_id existed
-        isMe: m.device_id ? m.device_id === deviceId : m.author === userName,
+        isMe: isSysText(m.text) ? false : m.device_id ? m.device_id === deviceId : m.author === userName,
         replyTo: m.reply_to ?? null,
         edited: !!m.edited_at,
         reactions: Array.from(grouped.values()),
@@ -2477,6 +2483,7 @@ export default function DevLoungeModal({
       const conv = convKey ? conversationsRef.current.find((c) => c.id === convKey) : null
       if (convKey && !conv) return // not one of my chats (or my list hasn't loaded it yet): look again next update
       seenMsgIds.current.add(m.id)
+      if (isSysText(m.text)) return // group notices never ping
       const mine = m.device_id ? m.device_id === deviceId : m.author === userName
       if (mine) return
       const chatKey = convKey ?? 'global'
@@ -3536,9 +3543,11 @@ export default function DevLoungeModal({
       return
     }
     setRawConvs((prev) => [...prev, { ...row, created_at: new Date().toISOString() }])
+    const addedNames = groupPick.map((id) => memberByDevice.get(id)?.name ?? 'Member')
     closeChatSheet()
     switchChat(row.id)
     fetchData()
+    void postGroupNotice(row.id, `${userName} created the group and added ${joinNames(addedNames)}`)
   }
 
   const openDm = async (member: LoungeMember) => {
@@ -3610,21 +3619,96 @@ export default function DevLoungeModal({
     fetchData()
     return true
   }
+  // Posts a centered notice into the group chat for everyone to see
+  const postGroupNotice = async (convId: string, text: string) => {
+    console.log('[lounge] posting group notice:', text)
+    if (!deviceId || !userName) {
+      showToast('Notice not posted: your profile is not loaded yet')
+      return
+    }
+    const tempId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    const full = SYS_PREFIX + text
+    // show it instantly for the person who did the action
+    setRawMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        author: userName,
+        location: 'Manila, PH',
+        text: full,
+        avatar_seed: `${userName}-${avatarSalt}`,
+        device_id: deviceId,
+        conversation_id: convId,
+        created_at: new Date().toISOString(),
+      },
+    ])
+    beginWrite()
+    const { data: saved, error } = await supabase
+      .from('lounge_messages')
+      .insert([
+        {
+          author: userName,
+          location: 'Manila, PH',
+          text: full,
+          avatar_seed: `${userName}-${avatarSalt}`,
+          device_id: deviceId,
+          conversation_id: convId,
+        },
+      ])
+      .select()
+      .single()
+    endWrite()
+    if (error) {
+      console.error('Could not post group notice:', error)
+      setRawMessages((prev) => prev.filter((m) => m.id !== tempId))
+      showToast(`Notice not posted: ${error.message}`)
+      return
+    }
+    console.log('[lounge] group notice saved:', saved?.id)
+    if (saved) {
+      setRawMessages((prev) => {
+        const rest = prev.filter((m) => m.id !== tempId)
+        return rest.some((m) => m.id === saved.id) ? rest : [...rest, saved].sort(byCreatedAt)
+      })
+    }
+    fetchData()
+  }
+  // Real name for a notice (everyone reads it, so never "You")
+  const noticeName = (conv: Conversation, id: string) =>
+    nickIn(conv, id) || (id === deviceId ? userName : memberByDevice.get(id)?.name) || 'Member'
+  const joinNames = (names: string[]) =>
+    names.length <= 1 ? names[0] ?? '' : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+
   const kickMember = async (conv: Conversation, id: string) => {
     if (conv.createdBy !== deviceId || id === conv.createdBy) return
     setKickConfirm(null)
+    const kickedName = noticeName(conv, id)
     const ok = await updateConv(conv.id, { members: conv.members.filter((m) => m !== id) })
-    if (ok) showToast(`${nameOf(id)} was removed from ${conv.name}`)
+    if (ok) {
+      showToast(`${nameOf(id)} was removed from ${conv.name}`)
+      void postGroupNotice(conv.id, `${noticeName(conv, deviceId)} removed ${kickedName} from the group`)
+    }
   }
   const removeRequest = (conv: Conversation, id: string) => conv.requests.filter((r) => r.deviceId !== id)
   const approveRequest = async (conv: Conversation, id: string) => {
     if (conv.createdBy !== deviceId) return
     const members = conv.members.includes(id) ? conv.members : [...conv.members, id]
-    await updateConv(conv.id, { members, join_requests: removeRequest(conv, id) })
+    const req = conv.requests.find((r) => r.deviceId === id)
+    const ok = await updateConv(conv.id, { members, join_requests: removeRequest(conv, id) })
+    if (ok) {
+      const who = noticeName(conv, id)
+      const by = req && req.by !== deviceId ? ` (added by ${noticeName(conv, req.by)})` : ''
+      void postGroupNotice(conv.id, `${noticeName(conv, deviceId)} accepted ${who} into the group${by}`)
+    }
   }
   const rejectRequest = async (conv: Conversation, id: string) => {
     if (conv.createdBy !== deviceId) return
-    await updateConv(conv.id, { join_requests: removeRequest(conv, id) })
+    const req = conv.requests.find((r) => r.deviceId === id)
+    const ok = await updateConv(conv.id, { join_requests: removeRequest(conv, id) })
+    if (ok) {
+      const by = req && req.by !== deviceId ? ` (added by ${noticeName(conv, req.by)})` : ''
+      void postGroupNotice(conv.id, `${noticeName(conv, deviceId)} declined ${noticeName(conv, id)}'s request to join${by}`)
+    }
   }
   const submitAddMembers = async (conv: Conversation) => {
     if (!deviceId || addPick.length === 0) return
@@ -3636,7 +3720,10 @@ export default function DevLoungeModal({
         members: Array.from(new Set([...conv.members, ...fresh])),
         join_requests: conv.requests.filter((r) => !fresh.includes(r.deviceId)),
       })
-      if (ok) showToast(`Added ${fresh.length} ${fresh.length === 1 ? 'member' : 'members'}`)
+      if (ok) {
+        showToast(`Added ${fresh.length} ${fresh.length === 1 ? 'member' : 'members'}`)
+        void postGroupNotice(conv.id, `${noticeName(conv, deviceId)} added ${joinNames(fresh.map((id) => noticeName(conv, id)))} to the group`)
+      }
     } else {
       // a member can only ask: the admin has to approve
       const at = new Date().toISOString()
@@ -3645,7 +3732,10 @@ export default function DevLoungeModal({
         showToast('Those people are already waiting for approval')
       } else {
         const ok = await updateConv(conv.id, { join_requests: [...conv.requests, ...asked] })
-        if (ok) showToast('Request sent. An admin needs to approve it.')
+        if (ok) {
+          showToast('Request sent. An admin needs to approve it.')
+          void postGroupNotice(conv.id, `${noticeName(conv, deviceId)} wants to add ${joinNames(asked.map((r) => noticeName(conv, r.deviceId)))}. Waiting for admin approval`)
+        }
       }
     }
     setAddPick([])
@@ -4509,8 +4599,16 @@ export default function DevLoungeModal({
 
           {messages.map((m, i) => {
             const prev = messages[i - 1]
+            if (m.system) {
+              return (
+                <div key={m.id} id={`lounge-msg-${m.id}`} className="lounge-sys" role="status">
+                  <span>{m.text}</span>
+                </div>
+              )
+            }
             const showHead =
               !prev ||
+              prev.system ||
               prev.author !== m.author ||
               !!m.replyTo ||
               new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60000
