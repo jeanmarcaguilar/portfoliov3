@@ -301,6 +301,48 @@ const buildEmailHtml = (v = {}) => {
 </html>`;
 };
 
+// --- Server-side location fallback -------------------------------------------------
+// If the browser couldn't look up the visitor's location (ad blockers, rate limits, CORS in
+// production), the server does it itself from the visitor's IP address.
+const getClientIp = (req) => {
+  const xff = req.headers['x-forwarded-for'];
+  const first = String(Array.isArray(xff) ? xff[0] : xff || '').split(',')[0].trim();
+  const ip = first || String(req.headers['x-real-ip'] || '') || req.socket?.remoteAddress || '';
+  return ip.replace(/^::ffff:/, '');
+};
+
+// Vercel adds the visitor's location to every request as headers (free, no API call needed).
+const vercelLocation = (req) => {
+  const h = req.headers || {};
+  const decode = (x) => { try { return decodeURIComponent(String(x || '')); } catch (_) { return String(x || ''); } };
+  const city = decode(h['x-vercel-ip-city']);
+  const code = String(h['x-vercel-ip-country'] || '').toUpperCase();
+  if (!city && !code) return null;
+  let country = code;
+  try { country = new Intl.DisplayNames(['en'], { type: 'region' }).of(code) || code; } catch (_) { /* keep code */ }
+  return { city: city || undefined, country: country || undefined, countryCode: code || undefined };
+};
+
+const isPrivateIp = (ip) =>
+  !ip || ip === '::1' || /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip) || /^(fc|fd|fe80)/i.test(ip);
+
+const lookupLocation = async (ip) => {
+  if (isPrivateIp(ip)) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4000);
+  try {
+    const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}?fields=success,city,region,country,country_code`, { signal: ctrl.signal });
+    const j = await res.json();
+    if (!j || j.success === false) return null;
+    return { city: j.city, region: j.region, country: j.country, countryCode: j.country_code };
+  } catch (err) {
+    console.error('Server-side location lookup failed:', err.message);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -327,13 +369,23 @@ export default async function handler(req, res) {
 
     await transporter.verify();
 
-    const emailSubject = `New Portfolio Visitor - ${visitorData.location?.city || 'Unknown Location'}`;
-    const emailHtml = buildEmailHtml({
+    const clientIp = visitorData.ip || getClientIp(req);
+    let location = visitorData.location || {};
+    if (!location.city && !location.country) {
+      const found = vercelLocation(req) || (await lookupLocation(clientIp));
+      if (found) location = { ...location, ...found };
+    }
+    const enriched = {
       ...visitorData,
+      ip: clientIp || visitorData.ip,
+      location,
       language: visitorData.language || String(req.headers['accept-language'] || '').split(',')[0],
-    });
+    };
 
-    console.log('[visitor-email] v5 - visit details');
+    const emailSubject = `New Portfolio Visitor - ${location.city || location.country || 'Unknown Location'}`;
+    const emailHtml = buildEmailHtml(enriched);
+
+    console.log('[visitor-email] v7 - vercel geo headers');
     const info = await transporter.sendMail({
       from: gmailUser,
       to: recipientEmail,
