@@ -3997,8 +3997,6 @@ const GAMES: GameMeta[] = [
   { id: 'duels', icon: '⚔️', label: 'Duels', blurb: 'Challenge a member to Tic-Tac-Toe or a Quiz Duel.', kind: 'live', hue: '#f43f5e' },
 ]
 
-const TABS = GAMES
-
 const LOBBY_SECTIONS: { kind: GameKind; title: string; sub: string }[] = [
   { kind: 'daily', title: 'Daily challenges', sub: 'Fresh every 24 hours' },
   { kind: 'quick', title: 'Quick play', sub: 'Jump in, no setup' },
