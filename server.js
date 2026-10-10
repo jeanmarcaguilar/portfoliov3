@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import nodemailer from 'nodemailer';
+import { claimIp, releaseIp } from './_seenIp.js';
 
 dotenv.config();
 
@@ -320,8 +321,18 @@ app.use(bodyParser.json());
 app.post('/api/track-visitor', async (req, res) => {
   console.log('Received visitor tracking request');
 
+  let claimedIp = null;
+
   try {
     const visitorData = req.body;
+
+    // Only email for an IP address we have never seen before.
+    const clientIp = visitorData.ip || String(req.socket?.remoteAddress || '').replace(/^::ffff:/, '');
+    if (!(await claimIp(clientIp))) {
+      console.log('Known IP, skipping email:', clientIp);
+      return res.status(200).json({ success: true, skipped: true, message: 'Returning visitor - no email sent' });
+    }
+    claimedIp = clientIp;
 
     const gmailUser = process.env.GMAIL_USER;
     const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
@@ -358,6 +369,7 @@ app.post('/api/track-visitor', async (req, res) => {
     return res.status(200).json({ success: true, message: 'Visitor tracked and email sent' });
   } catch (error) {
     console.error('Error tracking visitor:', error);
+    if (claimedIp) await releaseIp(claimedIp);
     return res.status(500).json({ error: 'Failed to track visitor', details: error.message });
   }
 });

@@ -132,8 +132,8 @@ export async function trackVisitor(): Promise<void> {
     // Check if this visitor has already been tracked in this session
     const sessionKey = 'visitor_tracked';
     if (sessionStorage.getItem(sessionKey)) {
-      console.log('Visitor already tracked in this session - clearing to test');
-      sessionStorage.removeItem(sessionKey);
+      console.log('Visitor already tracked in this session - skipping');
+      return;
     }
 
     console.log('Starting visitor tracking...');

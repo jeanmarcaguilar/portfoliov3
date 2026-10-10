@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { claimIp, releaseIp } from './_seenIp.js';
 
 /* -------------------------------------------------------------------------- */
 /*  Visitor notification email – Portfolio design system                      */
@@ -349,6 +350,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  let claimedIp = null;
+
   try {
     const visitorData = req.body;
     console.log('Processing visitor data:', visitorData);
@@ -370,6 +373,14 @@ export default async function handler(req, res) {
     await transporter.verify();
 
     const clientIp = visitorData.ip || getClientIp(req);
+
+    // Only email for an IP address we have never seen before.
+    if (!(await claimIp(clientIp))) {
+      console.log('Known IP, skipping email:', clientIp);
+      return res.status(200).json({ success: true, skipped: true, message: 'Returning visitor - no email sent' });
+    }
+    claimedIp = clientIp;
+
     let location = visitorData.location || {};
     if (!location.city && !location.country) {
       const found = vercelLocation(req) || (await lookupLocation(clientIp));
@@ -398,6 +409,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, message: 'Visitor tracked and email sent' });
   } catch (error) {
     console.error('Error tracking visitor:', error);
+    // The email didn't go out, so forget the IP and let the next visit retry.
+    if (claimedIp) await releaseIp(claimedIp);
     return res.status(500).json({ error: 'Failed to track visitor', details: error.message });
   }
 }
