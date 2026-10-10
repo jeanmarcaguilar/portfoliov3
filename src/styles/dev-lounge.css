@@ -6094,6 +6094,7 @@ button.lounge-note-bubble:focus-visible { outline: 2px solid var(--orange); outl
   color: var(--muted);
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -6722,3 +6723,2082 @@ button.lounge-note-bubble:focus-visible { outline: 2px solid var(--orange); outl
 }
 .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__queue { max-height: 24vh; }
 .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__add input { flex: 1 1 auto; min-width: 0; }
+/* ===================================================
+   CHILL ZONE: visual refresh (styling only, no markup or behaviour changes)
+   Soft peach / lavender / pink wash, flat white cards, bold tracked labels,
+   rounder corners, softer shadow. Safe for dark mode (uses --l-surface mixes).
+   =================================================== */
+.lounge-side .lounge-chill {
+  gap: 12px;
+  padding: 18px 18px 16px;
+  border-radius: 28px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background:
+    radial-gradient(70% 38% at 100% 0%, rgba(255, 190, 140, 0.38) 0%, transparent 70%),
+    radial-gradient(60% 40% at 0% 62%, rgba(150, 160, 255, 0.28) 0%, transparent 70%),
+    radial-gradient(75% 38% at 100% 100%, rgba(255, 140, 170, 0.34) 0%, transparent 70%),
+    var(--l-surface);
+  box-shadow: 0 22px 50px -34px rgba(6, 12, 26, 0.35);
+}
+
+/* soft ambient glows */
+.lounge-chill__orb { filter: blur(60px); opacity: 0.22; }
+.lounge-chill__orb.is-a { background: #ffa65c; }
+.lounge-chill__orb.is-b { width: 260px; height: 260px; background: #8f9bff; opacity: 0.26; }
+.lounge-chill__orb.is-c { width: 240px; height: 240px; background: #ff8fb0; opacity: 0.26; }
+
+/* tiny evenly spaced dots drifting along the bottom */
+.lounge-chill__mote {
+  width: 3px;
+  height: 3px;
+  background: color-mix(in srgb, var(--navy) 28%, transparent);
+}
+
+/* header */
+.lounge-chill__head { align-items: flex-start; margin-bottom: 2px; }
+.lounge-chill__eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; }
+.lounge-chill__title { margin-top: 3px; font-size: 21px; font-weight: 800; letter-spacing: -0.01em; }
+.lounge-chill__x {
+  width: 28px;
+  height: 28px;
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+  background: color-mix(in srgb, var(--l-surface) 70%, transparent);
+  font-size: 16px;
+}
+
+/* cards: flat, white, thin border, round */
+.lounge-chill__card {
+  padding: 14px 16px 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  background: color-mix(in srgb, var(--l-surface) 86%, transparent);
+  box-shadow: none;
+}
+.lounge-chill__row-head { margin-bottom: 8px; }
+.lounge-chill__label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: color-mix(in srgb, var(--navy) 72%, var(--muted));
+}
+.lounge-chill__pill {
+  padding: 3px 9px;
+  background: color-mix(in srgb, var(--tint) 70%, var(--l-surface));
+  font-size: 11px;
+  font-weight: 700;
+}
+.lounge-chill__empty,
+.lounge-chill__muted { font-size: 13px; line-height: 1.55; }
+.lounge-chill__empty code {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--tint) 85%, var(--l-surface));
+  font-size: 11.5px;
+}
+
+/* people */
+.lounge-chill__people { gap: 10px; }
+.lounge-chill__who b { font-size: 13.5px; font-weight: 700; }
+.lounge-chill__who small { font-size: 11.5px; }
+.lounge-chill__dot.is-badge { width: 9px; height: 9px; box-shadow: 0 0 0 2px var(--l-surface); }
+
+/* footer */
+.lounge-chill__foot { padding-top: 6px; }
+.lounge-chill__switch { font-size: 12px; }
+.lounge-chill__switch .lounge-chill__track { width: 30px; height: 18px; }
+.lounge-chill__foot .lounge-chill__link { color: var(--navy); font-weight: 700; font-size: 12px; }
+
+/* the music player card at the top of the panel */
+.lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__pop {
+  padding: 16px 18px 14px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  background: var(--l-surface);
+  box-shadow: 0 14px 34px -24px rgba(6, 12, 26, 0.32);
+}
+
+/* ===================================================================
+   PASTEL DASHBOARD REFRESH
+   Visual restyle only: no markup, class names or behaviour changed.
+   Desktop (>= 901px) gets the full dashboard layout (logo + centred icon nav,
+   two soft cards on a peach wash). Smaller screens inherit the new palette only.
+   Appended last on purpose so it layers over everything above.
+   =================================================================== */
+
+.lounge-modal {
+  --d-ink: var(--navy);
+  --d-soft: #6f7aa6;
+  --d-label: #5f6cb4;
+  --d-accent: #f9802f;
+  --d-accent-grad: linear-gradient(135deg, #ffa05c 0%, #f9802f 100%);
+  --d-card: rgba(255, 253, 251, 0.88);
+  --d-card-solid: #fffdfb;
+  --d-border: #f0e4db;
+  --d-field-border: #eadfd5;
+  --d-lav: #f1f0fb;
+  --d-lav-border: #e4e2f6;
+  --d-lav-icon: #e3e1f7;
+  --d-chip: #eef0f7;
+  --d-shadow: 0 26px 56px -40px rgba(120, 80, 40, 0.45);
+  --d-nav: #5a6697;
+  --d-link: #3f4fd6;
+  --d-bg:
+    radial-gradient(55% 55% at 0% 45%, rgba(255, 205, 170, 0.5) 0%, transparent 70%),
+    radial-gradient(45% 50% at 100% 0%, rgba(205, 195, 255, 0.38) 0%, transparent 70%),
+    radial-gradient(55% 55% at 100% 100%, rgba(255, 208, 188, 0.6) 0%, transparent 70%),
+    radial-gradient(50% 45% at 0% 0%, rgba(255, 232, 214, 0.7) 0%, transparent 70%),
+    #fffaf6;
+}
+
+[data-theme='dark'] .lounge-modal {
+  --d-soft: #9aa4c8;
+  --d-label: #98a4f0;
+  --d-card: rgba(20, 28, 46, 0.92);
+  --d-card-solid: #141c2e;
+  --d-border: rgba(255, 255, 255, 0.08);
+  --d-field-border: rgba(255, 255, 255, 0.12);
+  --d-lav: rgba(124, 140, 255, 0.12);
+  --d-lav-border: rgba(124, 140, 255, 0.22);
+  --d-lav-icon: rgba(124, 140, 255, 0.22);
+  --d-chip: rgba(255, 255, 255, 0.08);
+  --d-shadow: 0 26px 56px -40px rgba(0, 0, 0, 0.7);
+  --d-nav: #a8b2d8;
+  --d-link: #9aa6ff;
+  --d-bg:
+    radial-gradient(55% 55% at 0% 45%, rgba(255, 138, 61, 0.1) 0%, transparent 70%),
+    radial-gradient(45% 50% at 100% 0%, rgba(124, 140, 255, 0.12) 0%, transparent 70%),
+    #0b1222;
+}
+
+.lounge-modal,
+.lounge-overlay.is-open .lounge-modal {
+  background: var(--d-bg) !important;
+  border: 0 !important;
+}
+
+/* ---------- shared bits that also apply on small screens ---------- */
+.lounge-modal .lounge-send-btn:not(.is-edit) {
+  background: var(--d-accent-grad);
+  color: #fff;
+}
+.lounge-modal .lounge-music__btn.is-main { background: var(--d-accent-grad); }
+
+/* ===================================================================
+   DESKTOP DASHBOARD
+   =================================================================== */
+@media (min-width: 901px) {
+  /* ---------- Header: logo left, icon nav centred, status + close right ---------- */
+  .lounge-modal .lounge-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 30px 42px 22px;
+  }
+  .lounge-modal .lounge-header__left {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 16px;
+  }
+  .lounge-modal .lounge-header__left::before {
+    content: '';
+    flex: none;
+    width: 46px;
+    height: 46px;
+    background: var(--d-accent-grad);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' %3E%3Cpath fill='%23000' d='M24 3C12.4 3 4 11 4 21.2c0 5.6 2.7 10.4 7 13.6L9.5 44l9.6-5.4c1.6.4 3.2.6 4.9.6 11.6 0 20-8 20-18S35.6 3 24 3z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' %3E%3Cpath fill='%23000' d='M24 3C12.4 3 4 11 4 21.2c0 5.6 2.7 10.4 7 13.6L9.5 44l9.6-5.4c1.6.4 3.2.6 4.9.6 11.6 0 20-8 20-18S35.6 3 24 3z'/%3E%3C/svg%3E") center / contain no-repeat;
+    filter: drop-shadow(0 8px 12px rgba(249, 128, 47, 0.28));
+  }
+  .lounge-modal .lounge-header__title {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+  }
+  .lounge-modal .lounge-header__sub {
+    margin-top: 5px;
+    font-size: 15px;
+    line-height: 1.2;
+    color: var(--d-soft);
+  }
+
+  /* the right cluster dissolves so the nav buttons can sit in the middle */
+  .lounge-modal .lounge-header__right,
+  .lounge-modal .lounge-header__chats { display: contents; }
+  .lounge-modal .lounge-header::after {
+    content: '';
+    order: 8;
+    flex: 1 1 0;
+  }
+
+  /* nav order: home, games, people, new message, chill, sound */
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'] { order: 1; }
+  .lounge-modal .lounge-header .lounge-games-toggle { order: 2; }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='New group chat'] { order: 3; }
+  .lounge-modal .lounge-header .lounge-iconbtn--add { order: 4; }
+  .lounge-modal .lounge-header .lounge-chill-toggle { order: 5; }
+  .lounge-modal .lounge-header .lounge-bgm-toggle { order: 6; }
+  .lounge-modal .lounge-header .lounge-music-slot,
+  .lounge-modal .lounge-header .lounge-group-music-slot { order: 7; }
+
+  .lounge-modal .lounge-header .lounge-iconbtn,
+  .lounge-modal .lounge-header .lounge-bgm-toggle {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+    color: var(--d-nav);
+    font-size: 0;
+    line-height: 0;
+    transition: background 0.18s, color 0.18s, transform 0.18s;
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn:hover,
+  .lounge-modal .lounge-header .lounge-bgm-toggle:hover {
+    background: color-mix(in srgb, var(--orange) 12%, transparent);
+    color: var(--orange);
+    transform: none;
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn.is-active,
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--orange) 16%, var(--d-card-solid));
+    color: var(--orange);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--orange) 14%, transparent);
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn svg { width: 24px; height: 24px; }
+
+  /* swap emoji / globe glyphs for matching line icons */
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'] > svg { display: none; }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat']::before,
+  .lounge-modal .lounge-header .lounge-games-toggle::before,
+  .lounge-modal .lounge-header .lounge-chill-toggle::before,
+  .lounge-modal .lounge-header .lounge-bgm-toggle::before {
+    content: '';
+    width: 25px;
+    height: 25px;
+    background: currentColor;
+    -webkit-mask: var(--d-ico) center / contain no-repeat;
+    mask: var(--d-ico) center / contain no-repeat;
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'] { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11.5 12 4l9 7.5'/%3E%3Cpath d='M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10'/%3E%3C/g%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'][aria-pressed='true'] { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cpath fill='%23000' d='M12 3.2 2.8 11.1c-.5.4-.2 1.2.4 1.2H5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-7.7h1.8c.6 0 .9-.8.4-1.2z'/%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-games-toggle { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.5' y='6.5' width='19' height='11.5' rx='5.75'/%3E%3Cpath d='M7.5 10.2v4.2M5.4 12.3h4.2'/%3E%3C/g%3E%3Ccircle cx='15.6' cy='11.2' r='1' fill='%23000'/%3E%3Ccircle cx='18' cy='13.6' r='1' fill='%23000'/%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-chill-toggle { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9.5h12v4.5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z'/%3E%3Cpath d='M16 10.8h1.4a2.4 2.4 0 0 1 0 4.8H16'/%3E%3Cpath d='M8 3.5c0 1 1 1.2 1 2.2M12 3.5c0 1 1 1.2 1 2.2'/%3E%3C/g%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-bgm-toggle { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9.5v5h3.5L13 19V5L7.5 9.5z'/%3E%3Cpath d='M16.5 9a4.2 4.2 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11'/%3E%3C/g%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-bgm-toggle[aria-label='Turn on background music'] { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9.5v5h3.5L13 19V5L7.5 9.5z'/%3E%3Cpath d='m16.5 9.5 5 5m0-5-5 5'/%3E%3C/g%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-chip__dot {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+  }
+
+  /* status pill + close sit on the right edge */
+  .lounge-modal .lounge-live-badge--btn {
+    position: absolute;
+    top: 30px;
+    right: calc(42px + 46px + 16px);
+    height: 46px;
+    margin: 0;
+    padding: 0 26px;
+    gap: 11px;
+    align-self: auto;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--d-border) 70%, transparent);
+    background: var(--d-card-solid);
+    box-shadow: 0 10px 26px -16px rgba(60, 50, 120, 0.3);
+    font-size: 15.5px;
+    font-weight: 600;
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-live-badge--btn b { color: var(--d-ink); font-weight: 700; }
+  .lounge-modal .lounge-live-badge--btn .lounge-live-dot { width: 9px; height: 9px; }
+  .lounge-modal .lounge-live-badge__total { margin-left: 2px; color: #6b78c9; font-weight: 500; }
+  .lounge-modal .lounge-close {
+    position: absolute;
+    top: 30px;
+    right: 42px;
+    width: 46px;
+    height: 46px;
+    border: 1px solid color-mix(in srgb, var(--d-border) 70%, transparent);
+    background: var(--d-card-solid);
+    box-shadow: 0 10px 26px -16px rgba(60, 50, 120, 0.3);
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-close svg { width: 17px; height: 17px; }
+
+  /* ---------- Two floating cards ---------- */
+  .lounge-modal .lounge-split,
+  .lounge-modal .lounge-split.has-chill {
+    padding: 0 42px 38px;
+    gap: 17px;
+    grid-template-columns: minmax(0, 1fr) clamp(430px, 31vw, 540px);
+  }
+  .lounge-modal .lounge-split.is-solo { grid-template-columns: minmax(0, 1fr); }
+  .lounge-modal .lounge-split.has-chill .lounge-side {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .lounge-modal .lounge-chat {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--d-border);
+    border-radius: 20px;
+    background: var(--d-card);
+    box-shadow: var(--d-shadow);
+    overflow: hidden;
+  }
+
+  /* ---------- Stories row ---------- */
+  .lounge-modal .lounge-stories {
+    gap: 20px;
+    padding: 18px 30px 14px;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .lounge-modal .lounge-story-item {
+    position: relative;
+    width: 104px;
+    gap: 6px;
+  }
+  .lounge-modal .lounge-story-item.is-me::after {
+    content: '';
+    position: absolute;
+    right: -11px;
+    bottom: 8px;
+    width: 1px;
+    height: 70px;
+    background: var(--d-border);
+  }
+  .lounge-modal .lounge-ring:not(.lounge-ring--live) {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .lounge-modal .lounge-ring--live { padding: 3px; }
+  .lounge-modal .lounge-ring__inner {
+    padding: 0;
+    background: transparent;
+    zoom: 1.55;
+  }
+  .lounge-modal .lounge-avatar-badge {
+    right: 2px;
+    bottom: 2px;
+    width: 15px;
+    height: 15px;
+    border: 2.5px solid var(--d-card-solid);
+  }
+  .lounge-modal .lounge-story-name {
+    max-width: 100px;
+    margin-top: 4px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .lounge-modal .lounge-story-time { font-size: 11px; }
+  /* scroll arrow only when the row really overflows */
+  .lounge-modal .lounge-stories:not(:has(.lounge-story-item:nth-child(8))) .lounge-stories-scroll { display: none; }
+
+  /* "Add note" becomes a pill with a pencil */
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 8px;
+    width: auto;
+    min-height: 0;
+    margin: 0 0 8px -2px;
+    padding: 9px 18px 9px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--d-field-border);
+    background: var(--d-card-solid);
+    box-shadow: none;
+    font-size: 14.5px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble.is-empty { color: var(--d-soft); border-style: solid; }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble::before {
+    position: static;
+    width: 17px;
+    height: 17px;
+    border: 0;
+    border-radius: 0;
+    transform: none;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z'/%3E%3Cpath d='m13.5 6.5 4 4'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z'/%3E%3Cpath d='m13.5 6.5 4 4'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble::after { display: none; }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+  }
+
+  /* ---------- Feed + empty state ---------- */
+  .lounge-modal .lounge-feed {
+    padding: 24px 34px 12px;
+    border-top: 1px solid var(--d-border);
+    background: transparent;
+  }
+  .lounge-modal .lounge-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 540px;
+    font-size: 19px;
+    line-height: 1.5;
+    color: var(--d-soft);
+  }
+  .lounge-modal .lounge-empty::before {
+    content: '';
+    order: -2;
+    width: 190px;
+    height: 128px;
+    margin-bottom: 30px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 124' %3E%3Cpath d='M32 10h70a24 24 0 0 1 24 24v26a24 24 0 0 1-24 24H70l-22 18V84h-16A24 24 0 0 1 8 60V34A24 24 0 0 1 32 10z' fill='%23ffcfa8'/%3E%3Ccircle cx='45' cy='47' r='5' fill='%23f58a3f'/%3E%3Ccircle cx='67' cy='47' r='5' fill='%23f58a3f'/%3E%3Ccircle cx='89' cy='47' r='5' fill='%23f58a3f'/%3E%3Cpath d='M112 62h40a20 20 0 0 1 20 20v8a20 20 0 0 1-20 20h-4v14l-14-14h-22a20 20 0 0 1-20-20v-8a20 20 0 0 1 20-20z' fill='%23c9c9f0'/%3E%3Ccircle cx='118' cy='86' r='3.6' fill='%238c93d9'/%3E%3Ccircle cx='132' cy='86' r='3.6' fill='%238c93d9'/%3E%3Ccircle cx='146' cy='86' r='3.6' fill='%238c93d9'/%3E%3Cpath d='M141 6l-5 11M154 22l-11 4M2 70l9-2' stroke='%23f58a3f' stroke-width='2.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-empty::after {
+    content: 'Your corner of the internet.';
+    order: -1;
+    margin-bottom: 10px;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--d-ink);
+  }
+  /* a direct message / group has its own greeting, so no headline there */
+  .lounge-modal .lounge-chat:has(.lounge-chat-head) .lounge-empty::after { display: none; }
+
+  /* ---------- Composer ---------- */
+  .lounge-modal .lounge-chat .lounge-bottom {
+    padding: 16px 26px 22px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-top: 1px solid var(--d-border);
+  }
+  .lounge-modal .lounge-bottom__meta {
+    gap: 14px;
+    margin: 0 0 10px 14px;
+    font-size: 12.5px;
+    color: var(--d-soft);
+  }
+  .lounge-modal .lounge-form {
+    align-items: center;
+    height: 64px;
+    padding: 6px 7px 6px 28px;
+    border-radius: 999px;
+    border: 1px solid var(--d-field-border);
+    background: var(--d-card-solid);
+    box-shadow: 0 14px 30px -26px rgba(120, 80, 40, 0.5);
+  }
+  .lounge-modal .lounge-input { font-size: 17px; color: var(--d-ink); }
+  .lounge-modal .lounge-input::placeholder { color: var(--d-soft); opacity: 0.85; }
+  .lounge-modal .lounge-send-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex: none;
+    width: auto;
+    min-width: 0;
+    height: 50px;
+    padding: 0 28px 0 24px;
+    border: 0;
+    border-radius: 999px;
+    font-size: 17px;
+    font-weight: 700;
+    opacity: 1;
+    box-shadow: 0 12px 22px -12px rgba(249, 128, 47, 0.75);
+  }
+  .lounge-modal .lounge-send-btn::before {
+    content: '';
+    width: 20px;
+    height: 20px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 3 10.5 13.5'/%3E%3Cpath d='M21 3l-6.5 18-4-7.5L3 9.5z'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 3 10.5 13.5'/%3E%3Cpath d='M21 3l-6.5 18-4-7.5L3 9.5z'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-send-btn:disabled { opacity: 0.92; filter: saturate(0.95); }
+  .lounge-modal .lounge-send-btn.is-active:not(:disabled):hover,
+  .lounge-modal .lounge-send-btn:not(.is-active):hover { transform: none; filter: brightness(1.05); }
+
+  /* ---------- Chill zone card ---------- */
+  .lounge-modal .lounge-side .lounge-chill {
+    gap: 16px;
+    padding: 28px 28px 24px;
+    border-radius: 20px;
+    border: 1px solid var(--d-border);
+    background: var(--d-card);
+    box-shadow: var(--d-shadow);
+  }
+  .lounge-modal .lounge-chill__orb { opacity: 0.1; }
+  .lounge-modal .lounge-chill__mote { opacity: 0; }
+
+  .lounge-modal .lounge-chill__head { margin-bottom: 0; align-items: flex-start; }
+  .lounge-modal .lounge-chill__eyebrow {
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    color: var(--orange);
+  }
+  .lounge-modal .lounge-chill__title {
+    margin-top: 5px;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.12;
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-chill__x {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    background: var(--d-chip);
+    color: var(--d-soft);
+    font-size: 0;
+  }
+  .lounge-modal .lounge-chill__x::before {
+    content: '';
+    width: 22px;
+    height: 22px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Ccircle cx='5' cy='12' r='1.9' fill='%23000'/%3E%3Ccircle cx='12' cy='12' r='1.9' fill='%23000'/%3E%3Ccircle cx='19' cy='12' r='1.9' fill='%23000'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Ccircle cx='5' cy='12' r='1.9' fill='%23000'/%3E%3Ccircle cx='12' cy='12' r='1.9' fill='%23000'/%3E%3Ccircle cx='19' cy='12' r='1.9' fill='%23000'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-chill__x:hover { background: color-mix(in srgb, var(--d-chip) 70%, var(--orange) 14%); color: var(--d-ink); }
+
+  .lounge-modal .lounge-chill__card {
+    padding: 22px 24px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--d-border);
+    background: var(--d-card-solid);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .lounge-modal .lounge-chill__row-head { margin-bottom: 14px; }
+  .lounge-modal .lounge-chill__label {
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    color: var(--d-label);
+  }
+  .lounge-modal .lounge-chill__pill {
+    padding: 6px 13px;
+    background: var(--d-chip);
+    color: var(--d-ink);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .lounge-modal .lounge-chill__dot { width: 9px; height: 9px; }
+
+  /* now playing: lavender card with a note badge when nothing plays */
+  .lounge-modal .lounge-chill__card[aria-label='Now playing'] {
+    background: var(--d-lav);
+    border-color: var(--d-lav-border);
+  }
+  .lounge-modal .lounge-chill__empty {
+    position: relative;
+    min-height: 56px;
+    padding: 4px 0 4px 74px;
+    font-size: 15.5px;
+    line-height: 1.55;
+    color: var(--d-soft);
+  }
+  .lounge-modal .lounge-chill__empty::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--d-lav-icon);
+    transform: translateY(-50%);
+  }
+  .lounge-modal .lounge-chill__empty::after {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    width: 26px;
+    height: 26px;
+    background: #7c86d6;
+    transform: translateY(-50%);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V6l10-2v12'/%3E%3Ccircle cx='6.5' cy='18' r='2.5'/%3E%3Ccircle cx='16.5' cy='16' r='2.5'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V6l10-2v12'/%3E%3Ccircle cx='6.5' cy='18' r='2.5'/%3E%3Ccircle cx='16.5' cy='16' r='2.5'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-chill__empty code {
+    padding: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+  }
+  .lounge-modal .lounge-chill__song-title { font-size: 17px; }
+  .lounge-modal .lounge-chill__muted { font-size: 14.5px; }
+
+  /* here now */
+  .lounge-modal .lounge-chill__people { gap: 14px; }
+  .lounge-modal .lounge-chill__person { gap: 16px; }
+  .lounge-modal .lounge-chill__av .lounge-chill__stack-av,
+  .lounge-modal .lounge-chill__av > :first-child { zoom: 1.85; }
+  .lounge-modal .lounge-chill__dot.is-badge {
+    right: 0;
+    bottom: 2px;
+    width: 13px;
+    height: 13px;
+    box-shadow: 0 0 0 2.5px var(--d-card-solid);
+  }
+  .lounge-modal .lounge-chill__who b { font-size: 17px; font-weight: 700; }
+  .lounge-modal .lounge-chill__who small { margin-top: 2px; font-size: 14.5px; }
+  .lounge-modal .lounge-chill__more { font-size: 13px; }
+
+  /* footer: switch on the left, games link on the right */
+  .lounge-modal .lounge-chill__foot { padding-top: 8px; gap: 18px; }
+  .lounge-modal .lounge-chill__switch { gap: 12px; font-size: 15px; color: var(--d-soft); }
+  .lounge-modal .lounge-chill__switch .lounge-chill__track { width: 46px; height: 28px; }
+  .lounge-modal .lounge-chill__track::after { top: 3px; left: 3px; width: 22px; height: 22px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18); }
+  .lounge-modal .lounge-chill__switch input:checked + .lounge-chill__track::after { transform: translateX(18px); }
+  .lounge-modal .lounge-chill__foot .lounge-chill__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    padding-left: 24px;
+    border-left: 1px solid var(--d-border);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--d-link);
+  }
+  .lounge-modal .lounge-chill__foot .lounge-chill__link::after {
+    content: '';
+    width: 14px;
+    height: 14px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  /* ---------- Music card (top of the chill zone) ---------- */
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned { position: relative; }
+
+  /* the video frame becomes the album art, tucked into the card's top-left */
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__pill {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 2;
+    width: 112px;
+    height: 112px;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    clip-path: none;
+    opacity: 1;
+    pointer-events: none;
+    background: linear-gradient(135deg, #f6c9a6, #d9b3d9);
+    box-shadow: 0 14px 26px -16px rgba(60, 30, 20, 0.55);
+  }
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__pill > :not(.lounge-music__screen) { display: none; }
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__pop {
+    padding: 24px 24px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--d-border);
+    background: var(--d-card-solid);
+    box-shadow: none;
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__now {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    column-gap: 22px;
+    row-gap: 8px;
+    align-items: start;
+    align-content: start;
+    min-height: 112px;
+    text-align: left;
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__now .lounge-music__eyebrow {
+    grid-column: 2;
+    margin-top: 2px;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    color: var(--orange);
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__now-title {
+    grid-column: 2;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.3;
+    text-align: left;
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__transport {
+    grid-column: 2;
+    justify-content: center;
+    gap: 26px;
+    margin-top: 4px;
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__transport .lounge-music__btn { color: var(--d-ink); }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__transport .lounge-music__btn svg { width: 20px; height: 20px; }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__btn.is-main.is-lg {
+    width: 52px;
+    height: 52px;
+    color: #fff;
+    background: var(--d-accent-grad);
+    box-shadow: 0 14px 24px -12px rgba(249, 128, 47, 0.8);
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__btn.is-main.is-lg svg { width: 21px; height: 21px; }
+
+  /* volume row styled like a seek bar, sitting full-width under the art */
+  .lounge-modal .lounge-music.is-pinned .lounge-music__volrow {
+    grid-column: 1 / -1;
+    gap: 14px;
+    margin-top: 14px;
+    font-size: 14px;
+    color: var(--d-soft);
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__vol { flex: 1 1 auto; height: 5px; border-radius: 999px; }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__vol::-webkit-slider-thumb { width: 16px; height: 16px; border-width: 2.5px; }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__volrow em { width: 30px; font-size: 12.5px; font-weight: 600; }
+
+  /* add-a-song row */
+  .lounge-modal .lounge-music.is-pinned .lounge-music__add { gap: 12px; margin-top: 4px; }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__add input {
+    height: 48px;
+    padding: 0 22px;
+    border-radius: 999px;
+    border: 1px solid var(--d-field-border);
+    background: var(--d-card-solid);
+    font-size: 15.5px;
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__add input::placeholder { color: var(--d-soft); opacity: 0.85; }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__add button {
+    height: 48px;
+    padding: 0 28px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--d-accent-grad);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    box-shadow: 0 12px 22px -14px rgba(249, 128, 47, 0.8);
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__queue { max-height: 22vh; }
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned,
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__pop {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+  }
+  /* the chill toggle only tints its icon, so the home tab stays the one highlighted button */
+  .lounge-modal .lounge-header .lounge-chill-toggle.is-active,
+  .lounge-modal .lounge-header .lounge-chill-toggle[aria-pressed='true'] {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1280px) {
+  .lounge-modal .lounge-header { padding-inline: 28px; }
+  .lounge-modal .lounge-split,
+  .lounge-modal .lounge-split.has-chill { padding-inline: 28px; }
+  .lounge-modal .lounge-close { right: 28px; }
+  .lounge-modal .lounge-live-badge--btn { right: calc(28px + 46px + 12px); }
+  .lounge-modal .lounge-header__sub { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lounge-modal .lounge-header .lounge-iconbtn,
+  .lounge-modal .lounge-header .lounge-bgm-toggle { transition: none; }
+}
+
+/* ===================================================================
+   PASTEL DASHBOARD REFRESH
+   Visual restyle only: no markup, class names or behaviour changed.
+   Desktop (>= 901px) gets the full dashboard layout (logo + centred icon nav,
+   two soft cards on a peach wash). Smaller screens inherit the new palette only.
+   Appended last on purpose so it layers over everything above.
+   =================================================================== */
+
+.lounge-modal {
+  --d-ink: var(--navy);
+  --d-soft: #6f7aa6;
+  --d-label: #5f6cb4;
+  --d-accent: #f9802f;
+  --d-accent-grad: linear-gradient(135deg, #ffa05c 0%, #f9802f 100%);
+  --d-card: rgba(255, 253, 251, 0.88);
+  --d-card-solid: #fffdfb;
+  --d-border: #f0e4db;
+  --d-field-border: #eadfd5;
+  --d-lav: #f1f0fb;
+  --d-lav-border: #e4e2f6;
+  --d-lav-icon: #e3e1f7;
+  --d-chip: #eef0f7;
+  --d-shadow: 0 26px 56px -40px rgba(120, 80, 40, 0.45);
+  --d-nav: #5a6697;
+  --d-link: #3f4fd6;
+  --d-bg:
+    radial-gradient(55% 55% at 0% 45%, rgba(255, 205, 170, 0.5) 0%, transparent 70%),
+    radial-gradient(45% 50% at 100% 0%, rgba(205, 195, 255, 0.38) 0%, transparent 70%),
+    radial-gradient(55% 55% at 100% 100%, rgba(255, 208, 188, 0.6) 0%, transparent 70%),
+    radial-gradient(50% 45% at 0% 0%, rgba(255, 232, 214, 0.7) 0%, transparent 70%),
+    #fffaf6;
+}
+
+[data-theme='dark'] .lounge-modal {
+  --d-soft: #9aa4c8;
+  --d-label: #98a4f0;
+  --d-card: rgba(20, 28, 46, 0.92);
+  --d-card-solid: #141c2e;
+  --d-border: rgba(255, 255, 255, 0.08);
+  --d-field-border: rgba(255, 255, 255, 0.12);
+  --d-lav: rgba(124, 140, 255, 0.12);
+  --d-lav-border: rgba(124, 140, 255, 0.22);
+  --d-lav-icon: rgba(124, 140, 255, 0.22);
+  --d-chip: rgba(255, 255, 255, 0.08);
+  --d-shadow: 0 26px 56px -40px rgba(0, 0, 0, 0.7);
+  --d-nav: #a8b2d8;
+  --d-link: #9aa6ff;
+  --d-bg:
+    radial-gradient(55% 55% at 0% 45%, rgba(255, 138, 61, 0.1) 0%, transparent 70%),
+    radial-gradient(45% 50% at 100% 0%, rgba(124, 140, 255, 0.12) 0%, transparent 70%),
+    #0b1222;
+}
+
+.lounge-modal,
+.lounge-overlay.is-open .lounge-modal {
+  background: var(--d-bg) !important;
+  border: 0 !important;
+}
+
+/* ---------- shared bits that also apply on small screens ---------- */
+.lounge-modal .lounge-send-btn:not(.is-edit) {
+  background: var(--d-accent-grad);
+  color: #fff;
+}
+.lounge-modal .lounge-music__btn.is-main { background: var(--d-accent-grad); }
+
+/* ===================================================================
+   DESKTOP DASHBOARD
+   =================================================================== */
+@media (min-width: 901px) {
+  /* ---------- Header: logo left, icon nav centred, status + close right ---------- */
+  .lounge-modal .lounge-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 30px 42px 22px;
+  }
+  .lounge-modal .lounge-header__left {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 16px;
+  }
+  .lounge-modal .lounge-header__left::before {
+    content: '';
+    flex: none;
+    width: 46px;
+    height: 46px;
+    background: var(--d-accent-grad);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' %3E%3Cpath fill='%23000' d='M24 3C12.4 3 4 11 4 21.2c0 5.6 2.7 10.4 7 13.6L9.5 44l9.6-5.4c1.6.4 3.2.6 4.9.6 11.6 0 20-8 20-18S35.6 3 24 3z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' %3E%3Cpath fill='%23000' d='M24 3C12.4 3 4 11 4 21.2c0 5.6 2.7 10.4 7 13.6L9.5 44l9.6-5.4c1.6.4 3.2.6 4.9.6 11.6 0 20-8 20-18S35.6 3 24 3z'/%3E%3C/svg%3E") center / contain no-repeat;
+    filter: drop-shadow(0 8px 12px rgba(249, 128, 47, 0.28));
+  }
+  .lounge-modal .lounge-header__title {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+  }
+  .lounge-modal .lounge-header__sub {
+    margin-top: 5px;
+    font-size: 15px;
+    line-height: 1.2;
+    color: var(--d-soft);
+  }
+
+  /* the right cluster dissolves so the nav buttons can sit in the middle */
+  .lounge-modal .lounge-header__right,
+  .lounge-modal .lounge-header__chats { display: contents; }
+  .lounge-modal .lounge-header::after {
+    content: '';
+    order: 8;
+    flex: 1 1 0;
+  }
+
+  /* nav order: home, games, people, new message, chill, sound */
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'] { order: 1; }
+  .lounge-modal .lounge-header .lounge-games-toggle { order: 2; }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='New group chat'] { order: 3; }
+  .lounge-modal .lounge-header .lounge-iconbtn--add { order: 4; }
+  .lounge-modal .lounge-header .lounge-chill-toggle { order: 5; }
+  .lounge-modal .lounge-header .lounge-bgm-toggle { order: 6; }
+  .lounge-modal .lounge-header .lounge-music-slot,
+  .lounge-modal .lounge-header .lounge-group-music-slot { order: 7; }
+
+  .lounge-modal .lounge-header .lounge-iconbtn,
+  .lounge-modal .lounge-header .lounge-bgm-toggle {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+    color: var(--d-nav);
+    font-size: 0;
+    line-height: 0;
+    transition: background 0.18s, color 0.18s, transform 0.18s;
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn:hover,
+  .lounge-modal .lounge-header .lounge-bgm-toggle:hover {
+    background: color-mix(in srgb, var(--orange) 12%, transparent);
+    color: var(--orange);
+    transform: none;
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn.is-active,
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--orange) 16%, var(--d-card-solid));
+    color: var(--orange);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--orange) 14%, transparent);
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn svg { width: 24px; height: 24px; }
+
+  /* swap emoji / globe glyphs for matching line icons */
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'] > svg { display: none; }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat']::before,
+  .lounge-modal .lounge-header .lounge-games-toggle::before,
+  .lounge-modal .lounge-header .lounge-chill-toggle::before,
+  .lounge-modal .lounge-header .lounge-bgm-toggle::before {
+    content: '';
+    width: 25px;
+    height: 25px;
+    background: currentColor;
+    -webkit-mask: var(--d-ico) center / contain no-repeat;
+    mask: var(--d-ico) center / contain no-repeat;
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'] { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11.5 12 4l9 7.5'/%3E%3Cpath d='M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10'/%3E%3C/g%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'][aria-pressed='true'] { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cpath fill='%23000' d='M12 3.2 2.8 11.1c-.5.4-.2 1.2.4 1.2H5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-7.7h1.8c.6 0 .9-.8.4-1.2z'/%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-games-toggle { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.5' y='6.5' width='19' height='11.5' rx='5.75'/%3E%3Cpath d='M7.5 10.2v4.2M5.4 12.3h4.2'/%3E%3C/g%3E%3Ccircle cx='15.6' cy='11.2' r='1' fill='%23000'/%3E%3Ccircle cx='18' cy='13.6' r='1' fill='%23000'/%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-chill-toggle { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9.5h12v4.5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z'/%3E%3Cpath d='M16 10.8h1.4a2.4 2.4 0 0 1 0 4.8H16'/%3E%3Cpath d='M8 3.5c0 1 1 1.2 1 2.2M12 3.5c0 1 1 1.2 1 2.2'/%3E%3C/g%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-bgm-toggle { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9.5v5h3.5L13 19V5L7.5 9.5z'/%3E%3Cpath d='M16.5 9a4.2 4.2 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11'/%3E%3C/g%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-bgm-toggle[aria-label='Turn on background music'] { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9.5v5h3.5L13 19V5L7.5 9.5z'/%3E%3Cpath d='m16.5 9.5 5 5m0-5-5 5'/%3E%3C/g%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-chip__dot {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+  }
+
+  /* status pill + close sit on the right edge */
+  .lounge-modal .lounge-live-badge--btn {
+    position: absolute;
+    top: 30px;
+    right: calc(42px + 46px + 16px);
+    height: 46px;
+    margin: 0;
+    padding: 0 26px;
+    gap: 11px;
+    align-self: auto;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--d-border) 70%, transparent);
+    background: var(--d-card-solid);
+    box-shadow: 0 10px 26px -16px rgba(60, 50, 120, 0.3);
+    font-size: 15.5px;
+    font-weight: 600;
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-live-badge--btn b { color: var(--d-ink); font-weight: 700; }
+  .lounge-modal .lounge-live-badge--btn .lounge-live-dot { width: 9px; height: 9px; }
+  .lounge-modal .lounge-live-badge__total { margin-left: 2px; color: #6b78c9; font-weight: 500; }
+  .lounge-modal .lounge-close {
+    position: absolute;
+    top: 30px;
+    right: 42px;
+    width: 46px;
+    height: 46px;
+    border: 1px solid color-mix(in srgb, var(--d-border) 70%, transparent);
+    background: var(--d-card-solid);
+    box-shadow: 0 10px 26px -16px rgba(60, 50, 120, 0.3);
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-close svg { width: 17px; height: 17px; }
+
+  /* ---------- Two floating cards ---------- */
+  .lounge-modal .lounge-split,
+  .lounge-modal .lounge-split.has-chill {
+    padding: 0 42px 38px;
+    gap: 17px;
+    grid-template-columns: minmax(0, 1fr) clamp(430px, 31vw, 540px);
+  }
+  .lounge-modal .lounge-split.is-solo { grid-template-columns: minmax(0, 1fr); }
+  .lounge-modal .lounge-split.has-chill .lounge-side {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .lounge-modal .lounge-chat {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--d-border);
+    border-radius: 20px;
+    background: var(--d-card);
+    box-shadow: var(--d-shadow);
+    overflow: hidden;
+  }
+
+  /* ---------- Stories row ---------- */
+  .lounge-modal .lounge-stories {
+    gap: 20px;
+    padding: 18px 30px 14px;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .lounge-modal .lounge-story-item {
+    position: relative;
+    width: 104px;
+    gap: 6px;
+  }
+  .lounge-modal .lounge-story-item.is-me::after {
+    content: '';
+    position: absolute;
+    right: -11px;
+    bottom: 8px;
+    width: 1px;
+    height: 70px;
+    background: var(--d-border);
+  }
+  .lounge-modal .lounge-ring:not(.lounge-ring--live) {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .lounge-modal .lounge-ring--live { padding: 3px; }
+  .lounge-modal .lounge-ring__inner {
+    padding: 0;
+    background: transparent;
+    zoom: 1.55;
+  }
+  .lounge-modal .lounge-avatar-badge {
+    right: 2px;
+    bottom: 2px;
+    width: 15px;
+    height: 15px;
+    border: 2.5px solid var(--d-card-solid);
+  }
+  .lounge-modal .lounge-story-name {
+    max-width: 100px;
+    margin-top: 4px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .lounge-modal .lounge-story-time { font-size: 11px; }
+  /* scroll arrow only when the row really overflows */
+  .lounge-modal .lounge-stories:not(:has(.lounge-story-item:nth-child(8))) .lounge-stories-scroll { display: none; }
+
+  /* "Add note" becomes a pill with a pencil */
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 8px;
+    width: auto;
+    min-height: 0;
+    margin: 0 0 8px -2px;
+    padding: 9px 18px 9px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--d-field-border);
+    background: var(--d-card-solid);
+    box-shadow: none;
+    font-size: 14.5px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble.is-empty { color: var(--d-soft); border-style: solid; }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble::before {
+    position: static;
+    width: 17px;
+    height: 17px;
+    border: 0;
+    border-radius: 0;
+    transform: none;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z'/%3E%3Cpath d='m13.5 6.5 4 4'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z'/%3E%3Cpath d='m13.5 6.5 4 4'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble::after { display: none; }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+  }
+
+  /* ---------- Feed + empty state ---------- */
+  .lounge-modal .lounge-feed {
+    padding: 24px 34px 12px;
+    border-top: 1px solid var(--d-border);
+    background: transparent;
+  }
+  .lounge-modal .lounge-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 540px;
+    font-size: 19px;
+    line-height: 1.5;
+    color: var(--d-soft);
+  }
+  .lounge-modal .lounge-empty::before {
+    content: '';
+    order: -2;
+    width: 190px;
+    height: 128px;
+    margin-bottom: 30px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 124' %3E%3Cpath d='M32 10h70a24 24 0 0 1 24 24v26a24 24 0 0 1-24 24H70l-22 18V84h-16A24 24 0 0 1 8 60V34A24 24 0 0 1 32 10z' fill='%23ffcfa8'/%3E%3Ccircle cx='45' cy='47' r='5' fill='%23f58a3f'/%3E%3Ccircle cx='67' cy='47' r='5' fill='%23f58a3f'/%3E%3Ccircle cx='89' cy='47' r='5' fill='%23f58a3f'/%3E%3Cpath d='M112 62h40a20 20 0 0 1 20 20v8a20 20 0 0 1-20 20h-4v14l-14-14h-22a20 20 0 0 1-20-20v-8a20 20 0 0 1 20-20z' fill='%23c9c9f0'/%3E%3Ccircle cx='118' cy='86' r='3.6' fill='%238c93d9'/%3E%3Ccircle cx='132' cy='86' r='3.6' fill='%238c93d9'/%3E%3Ccircle cx='146' cy='86' r='3.6' fill='%238c93d9'/%3E%3Cpath d='M141 6l-5 11M154 22l-11 4M2 70l9-2' stroke='%23f58a3f' stroke-width='2.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-empty::after {
+    content: 'Your corner of the internet.';
+    order: -1;
+    margin-bottom: 10px;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--d-ink);
+  }
+  /* a direct message / group has its own greeting, so no headline there */
+  .lounge-modal .lounge-chat:has(.lounge-chat-head) .lounge-empty::after { display: none; }
+
+  /* ---------- Composer ---------- */
+  .lounge-modal .lounge-chat .lounge-bottom {
+    padding: 16px 26px 22px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-top: 1px solid var(--d-border);
+  }
+  .lounge-modal .lounge-bottom__meta {
+    gap: 14px;
+    margin: 0 0 10px 14px;
+    font-size: 12.5px;
+    color: var(--d-soft);
+  }
+  .lounge-modal .lounge-form {
+    align-items: center;
+    height: 64px;
+    padding: 6px 7px 6px 28px;
+    border-radius: 999px;
+    border: 1px solid var(--d-field-border);
+    background: var(--d-card-solid);
+    box-shadow: 0 14px 30px -26px rgba(120, 80, 40, 0.5);
+  }
+  .lounge-modal .lounge-input { font-size: 17px; color: var(--d-ink); }
+  .lounge-modal .lounge-input::placeholder { color: var(--d-soft); opacity: 0.85; }
+  .lounge-modal .lounge-send-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex: none;
+    width: auto;
+    min-width: 0;
+    height: 50px;
+    padding: 0 28px 0 24px;
+    border: 0;
+    border-radius: 999px;
+    font-size: 17px;
+    font-weight: 700;
+    opacity: 1;
+    box-shadow: 0 12px 22px -12px rgba(249, 128, 47, 0.75);
+  }
+  .lounge-modal .lounge-send-btn::before {
+    content: '';
+    width: 20px;
+    height: 20px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 3 10.5 13.5'/%3E%3Cpath d='M21 3l-6.5 18-4-7.5L3 9.5z'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 3 10.5 13.5'/%3E%3Cpath d='M21 3l-6.5 18-4-7.5L3 9.5z'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-send-btn:disabled { opacity: 0.92; filter: saturate(0.95); }
+  .lounge-modal .lounge-send-btn.is-active:not(:disabled):hover,
+  .lounge-modal .lounge-send-btn:not(.is-active):hover { transform: none; filter: brightness(1.05); }
+
+  /* ---------- Chill zone card ---------- */
+  .lounge-modal .lounge-side .lounge-chill {
+    gap: 16px;
+    padding: 28px 28px 24px;
+    border-radius: 20px;
+    border: 1px solid var(--d-border);
+    background: var(--d-card);
+    box-shadow: var(--d-shadow);
+  }
+  .lounge-modal .lounge-chill__orb { opacity: 0.1; }
+  .lounge-modal .lounge-chill__mote { opacity: 0; }
+
+  .lounge-modal .lounge-chill__head { margin-bottom: 0; align-items: flex-start; }
+  .lounge-modal .lounge-chill__eyebrow {
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    color: var(--orange);
+  }
+  .lounge-modal .lounge-chill__title {
+    margin-top: 5px;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.12;
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-chill__x {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    background: var(--d-chip);
+    color: var(--d-soft);
+    font-size: 0;
+  }
+  .lounge-modal .lounge-chill__x::before {
+    content: '';
+    width: 22px;
+    height: 22px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Ccircle cx='5' cy='12' r='1.9' fill='%23000'/%3E%3Ccircle cx='12' cy='12' r='1.9' fill='%23000'/%3E%3Ccircle cx='19' cy='12' r='1.9' fill='%23000'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Ccircle cx='5' cy='12' r='1.9' fill='%23000'/%3E%3Ccircle cx='12' cy='12' r='1.9' fill='%23000'/%3E%3Ccircle cx='19' cy='12' r='1.9' fill='%23000'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-chill__x:hover { background: color-mix(in srgb, var(--d-chip) 70%, var(--orange) 14%); color: var(--d-ink); }
+
+  .lounge-modal .lounge-chill__card {
+    padding: 22px 24px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--d-border);
+    background: var(--d-card-solid);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .lounge-modal .lounge-chill__row-head { margin-bottom: 14px; }
+  .lounge-modal .lounge-chill__label {
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    color: var(--d-label);
+  }
+  .lounge-modal .lounge-chill__pill {
+    padding: 6px 13px;
+    background: var(--d-chip);
+    color: var(--d-ink);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .lounge-modal .lounge-chill__dot { width: 9px; height: 9px; }
+
+  /* now playing: lavender card with a note badge when nothing plays */
+  .lounge-modal .lounge-chill__card[aria-label='Now playing'] {
+    background: var(--d-lav);
+    border-color: var(--d-lav-border);
+  }
+  .lounge-modal .lounge-chill__empty {
+    position: relative;
+    min-height: 56px;
+    padding: 4px 0 4px 74px;
+    font-size: 15.5px;
+    line-height: 1.55;
+    color: var(--d-soft);
+  }
+  .lounge-modal .lounge-chill__empty::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--d-lav-icon);
+    transform: translateY(-50%);
+  }
+  .lounge-modal .lounge-chill__empty::after {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    width: 26px;
+    height: 26px;
+    background: #7c86d6;
+    transform: translateY(-50%);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V6l10-2v12'/%3E%3Ccircle cx='6.5' cy='18' r='2.5'/%3E%3Ccircle cx='16.5' cy='16' r='2.5'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V6l10-2v12'/%3E%3Ccircle cx='6.5' cy='18' r='2.5'/%3E%3Ccircle cx='16.5' cy='16' r='2.5'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-chill__empty code {
+    padding: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+  }
+  .lounge-modal .lounge-chill__song-title { font-size: 17px; }
+  .lounge-modal .lounge-chill__muted { font-size: 14.5px; }
+
+  /* here now */
+  .lounge-modal .lounge-chill__people { gap: 14px; }
+  .lounge-modal .lounge-chill__person { gap: 16px; }
+  .lounge-modal .lounge-chill__av .lounge-chill__stack-av,
+  .lounge-modal .lounge-chill__av > :first-child { zoom: 1.85; }
+  .lounge-modal .lounge-chill__dot.is-badge {
+    right: 0;
+    bottom: 2px;
+    width: 13px;
+    height: 13px;
+    box-shadow: 0 0 0 2.5px var(--d-card-solid);
+  }
+  .lounge-modal .lounge-chill__who b { font-size: 17px; font-weight: 700; }
+  .lounge-modal .lounge-chill__who small { margin-top: 2px; font-size: 14.5px; }
+  .lounge-modal .lounge-chill__more { font-size: 13px; }
+
+  /* footer: switch on the left, games link on the right */
+  .lounge-modal .lounge-chill__foot { padding-top: 8px; gap: 18px; }
+  .lounge-modal .lounge-chill__switch { gap: 12px; font-size: 15px; color: var(--d-soft); }
+  .lounge-modal .lounge-chill__switch .lounge-chill__track { width: 46px; height: 28px; }
+  .lounge-modal .lounge-chill__track::after { top: 3px; left: 3px; width: 22px; height: 22px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18); }
+  .lounge-modal .lounge-chill__switch input:checked + .lounge-chill__track::after { transform: translateX(18px); }
+  .lounge-modal .lounge-chill__foot .lounge-chill__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    padding-left: 24px;
+    border-left: 1px solid var(--d-border);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--d-link);
+  }
+  .lounge-modal .lounge-chill__foot .lounge-chill__link::after {
+    content: '';
+    width: 14px;
+    height: 14px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  /* ---------- Music card (top of the chill zone) ---------- */
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned { position: relative; }
+
+  /* the video frame becomes the album art, tucked into the card's top-left */
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__pill {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 2;
+    width: 112px;
+    height: 112px;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    clip-path: none;
+    opacity: 1;
+    pointer-events: none;
+    background: linear-gradient(135deg, #f6c9a6, #d9b3d9);
+    box-shadow: 0 14px 26px -16px rgba(60, 30, 20, 0.55);
+  }
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__pill > :not(.lounge-music__screen) { display: none; }
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__pop {
+    padding: 24px 24px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--d-border);
+    background: var(--d-card-solid);
+    box-shadow: none;
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__now {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    column-gap: 22px;
+    row-gap: 8px;
+    align-items: start;
+    align-content: start;
+    min-height: 112px;
+    text-align: left;
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__now .lounge-music__eyebrow {
+    grid-column: 2;
+    margin-top: 2px;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    color: var(--orange);
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__now-title {
+    grid-column: 2;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.3;
+    text-align: left;
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__transport {
+    grid-column: 2;
+    justify-content: center;
+    gap: 26px;
+    margin-top: 4px;
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__transport .lounge-music__btn { color: var(--d-ink); }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__transport .lounge-music__btn svg { width: 20px; height: 20px; }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__btn.is-main.is-lg {
+    width: 52px;
+    height: 52px;
+    color: #fff;
+    background: var(--d-accent-grad);
+    box-shadow: 0 14px 24px -12px rgba(249, 128, 47, 0.8);
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__btn.is-main.is-lg svg { width: 21px; height: 21px; }
+
+  /* volume row styled like a seek bar, sitting full-width under the art */
+  .lounge-modal .lounge-music.is-pinned .lounge-music__volrow {
+    grid-column: 1 / -1;
+    gap: 14px;
+    margin-top: 14px;
+    font-size: 14px;
+    color: var(--d-soft);
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__vol { flex: 1 1 auto; height: 5px; border-radius: 999px; }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__vol::-webkit-slider-thumb { width: 16px; height: 16px; border-width: 2.5px; }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__volrow em { width: 30px; font-size: 12.5px; font-weight: 600; }
+
+  /* add-a-song row */
+  .lounge-modal .lounge-music.is-pinned .lounge-music__add { gap: 12px; margin-top: 4px; }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__add input {
+    height: 48px;
+    padding: 0 22px;
+    border-radius: 999px;
+    border: 1px solid var(--d-field-border);
+    background: var(--d-card-solid);
+    font-size: 15.5px;
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__add input::placeholder { color: var(--d-soft); opacity: 0.85; }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__add button {
+    height: 48px;
+    padding: 0 28px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--d-accent-grad);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    box-shadow: 0 12px 22px -14px rgba(249, 128, 47, 0.8);
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__queue { max-height: 22vh; }
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned,
+  .lounge-modal .lounge-chill-music-slot .lounge-music.is-pinned .lounge-music__pop {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+  }
+  /* the chill toggle only tints its icon, so the home tab stays the one highlighted button */
+  .lounge-modal .lounge-header .lounge-chill-toggle.is-active,
+  .lounge-modal .lounge-header .lounge-chill-toggle[aria-pressed='true'] {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1280px) {
+  .lounge-modal .lounge-header { padding-inline: 28px; }
+  .lounge-modal .lounge-split,
+  .lounge-modal .lounge-split.has-chill { padding-inline: 28px; }
+  .lounge-modal .lounge-close { right: 28px; }
+  .lounge-modal .lounge-live-badge--btn { right: calc(28px + 46px + 12px); }
+  .lounge-modal .lounge-header__sub { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lounge-modal .lounge-header .lounge-iconbtn,
+  .lounge-modal .lounge-header .lounge-bgm-toggle { transition: none; }
+}
+
+/* ===================================================================
+   v2: SIDEBAR LAYOUT
+   The nav buttons that live in the header are re-laid out as a left sidebar
+   (same buttons, same handlers), the empty chat gets the room scene, and the
+   player / footer pick up the finer details. Still styling only.
+   =================================================================== */
+@media (min-width: 901px) {
+  .lounge-modal { --sb-left: 30px; --sb-w: 236px; --hd-h: 88px; --bottom-gap: 38px; }
+
+  /* header: fixed height, logo + status only (nav moved to the sidebar) */
+  .lounge-modal .lounge-header {
+    position: static;
+    height: var(--hd-h);
+    box-sizing: border-box;
+    padding: 0 32px 0 40px;
+  }
+  .lounge-modal .lounge-header::after { display: none; }
+  .lounge-modal .lounge-header__left::before {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' %3E%3Cpath fill='%23000' d='M5 6 24 20 43 6v8L24 28 5 14z'/%3E%3Cpath fill='%23000' d='M5 21 24 35 43 21v8L24 43 5 29z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' %3E%3Cpath fill='%23000' d='M5 6 24 20 43 6v8L24 28 5 14z'/%3E%3Cpath fill='%23000' d='M5 21 24 35 43 21v8L24 43 5 29z'/%3E%3C/svg%3E") center / contain no-repeat;
+    width: 44px;
+    height: 44px;
+  }
+  .lounge-modal .lounge-live-badge--btn { top: 21px; right: calc(32px + 46px + 14px); }
+  .lounge-modal .lounge-close { top: 21px; right: 32px; }
+
+  /* the sidebar card (replaces the blurred corner glow that used ::before) */
+  .lounge-modal::before {
+    content: '';
+    height: auto;
+    filter: none;
+    opacity: 1;
+    animation: none;
+    transform: none;
+    position: absolute;
+    z-index: 0;
+    left: var(--sb-left);
+    top: var(--hd-h);
+    bottom: var(--bottom-gap);
+    width: var(--sb-w);
+    border-radius: 20px;
+    border: 1px solid var(--d-border);
+    background:
+      radial-gradient(90% 40% at 0% 100%, rgba(255, 196, 160, 0.35) 0%, transparent 70%),
+      radial-gradient(80% 40% at 100% 85%, rgba(190, 180, 250, 0.28) 0%, transparent 70%),
+      var(--d-card);
+    box-shadow: var(--d-shadow);
+  }
+
+  /* nav buttons -> sidebar rows */
+  .lounge-modal .lounge-header .lounge-iconbtn,
+  .lounge-modal .lounge-header .lounge-bgm-toggle {
+    position: absolute;
+    left: calc(var(--sb-left) + 10px);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0;
+    width: calc(var(--sb-w) - 20px);
+    height: 50px;
+    padding: 0 18px;
+    border-radius: 14px;
+    color: var(--d-nav);
+    font-size: 0;
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'] { top: calc(var(--hd-h) + 22px); }
+  .lounge-modal .lounge-header .lounge-games-toggle { top: calc(var(--hd-h) + 76px); }
+  .lounge-modal .lounge-header .lounge-chill-toggle { top: calc(var(--hd-h) + 130px); }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='New group chat'] { top: calc(var(--hd-h) + 184px); }
+  .lounge-modal .lounge-header .lounge-iconbtn--add { top: calc(var(--hd-h) + 238px); }
+  .lounge-modal .lounge-header .lounge-bgm-toggle { top: calc(var(--hd-h) + 292px); }
+
+  .lounge-modal .lounge-header .lounge-iconbtn svg,
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat']::before,
+  .lounge-modal .lounge-header .lounge-games-toggle::before,
+  .lounge-modal .lounge-header .lounge-chill-toggle::before,
+  .lounge-modal .lounge-header .lounge-bgm-toggle::before {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    margin-right: 16px;
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'],
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat'][aria-pressed='true'] { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11.5a7.5 7.5 0 0 1-10.8 6.7L4 20l1.6-4.5A7.5 7.5 0 1 1 20 11.5z'/%3E%3C/g%3E%3C/svg%3E"); }
+  .lounge-modal .lounge-header .lounge-chill-toggle { --d-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V6l10-2v12'/%3E%3Ccircle cx='6.5' cy='18' r='2.5'/%3E%3Ccircle cx='16.5' cy='16' r='2.5'/%3E%3C/g%3E%3C/svg%3E"); }
+
+  /* row labels */
+  .lounge-modal .lounge-header .lounge-iconbtn::after,
+  .lounge-modal .lounge-header .lounge-bgm-toggle::after {
+    font-size: 17px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0;
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat']::after { content: 'Lounge'; }
+  .lounge-modal .lounge-header .lounge-games-toggle::after { content: 'Games'; }
+  .lounge-modal .lounge-header .lounge-chill-toggle::after { content: 'Music'; }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='New group chat']::after { content: 'Friends'; }
+  .lounge-modal .lounge-header .lounge-iconbtn--add::after { content: 'New message'; }
+  .lounge-modal .lounge-header .lounge-bgm-toggle::after { content: 'Sound'; }
+
+  /* the highlighted row is the peach pill with orange text */
+  .lounge-modal .lounge-header .lounge-iconbtn.is-active,
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--orange) 15%, var(--d-card-solid));
+    color: var(--orange);
+    box-shadow: none;
+  }
+  .lounge-modal .lounge-header .lounge-iconbtn.is-active::after,
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-pressed='true']::after { color: var(--orange); font-weight: 700; }
+  /* "Music" is a panel switch, not a page: it keeps the plain look */
+  .lounge-modal .lounge-header .lounge-chill-toggle.is-active,
+  .lounge-modal .lounge-header .lounge-chill-toggle[aria-pressed='true'] {
+    background: transparent;
+    color: var(--d-nav);
+  }
+  .lounge-modal .lounge-header .lounge-chill-toggle.is-active::after,
+  .lounge-modal .lounge-header .lounge-chill-toggle[aria-pressed='true']::after { color: var(--d-ink); font-weight: 500; }
+  .lounge-modal .lounge-header .lounge-iconbtn:hover,
+  .lounge-modal .lounge-header .lounge-bgm-toggle:hover { background: color-mix(in srgb, var(--orange) 9%, transparent); color: var(--d-nav); }
+  .lounge-modal .lounge-header .lounge-iconbtn.is-active:hover,
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-pressed='true']:hover { background: color-mix(in srgb, var(--orange) 15%, var(--d-card-solid)); color: var(--orange); }
+  .lounge-modal .lounge-header .lounge-chip__dot { top: 50%; right: 16px; transform: translateY(-50%); }
+
+  /* content columns start after the sidebar */
+  .lounge-modal .lounge-split,
+  .lounge-modal .lounge-split.has-chill,
+  .lounge-modal .lounge-split.is-solo {
+    padding: 0 28px var(--bottom-gap) calc(var(--sb-left) + var(--sb-w) + 12px);
+    gap: 14px;
+  }
+  .lounge-modal .lounge-split,
+  .lounge-modal .lounge-split.has-chill { grid-template-columns: minmax(0, 1fr) clamp(420px, 30vw, 520px); }
+  .lounge-modal .lounge-split.is-solo { grid-template-columns: minmax(0, 1fr); }
+
+  /* add note: plus instead of pencil */
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble::before {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble { font-weight: 600; color: var(--d-ink); }
+  .lounge-modal .lounge-story-name { font-weight: 600; }
+
+  /* empty chat: the room scene with a headline underneath */
+  .lounge-modal .lounge-feed { position: relative; }
+  .lounge-modal .lounge-feed:has(.lounge-empty)::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 66%;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 340' %3E%3Crect x='520' y='28' width='300' height='200' rx='14' fill='%23ebe8f9'/%3E%3Cg fill='%23d9d6f1'%3E%3Crect x='540' y='140' width='34' height='88'/%3E%3Crect x='580' y='110' width='28' height='118'/%3E%3Crect x='616' y='150' width='40' height='78'/%3E%3Crect x='664' y='100' width='30' height='128'/%3E%3Crect x='702' y='132' width='36' height='96'/%3E%3Crect x='746' y='156' width='50' height='72'/%3E%3C/g%3E%3Cpath d='M770 0v44' stroke='%23e8d9cb' stroke-width='3'/%3E%3Cpath d='M728 84a42 34 0 0 1 84 0z' fill='%23fff1e2'/%3E%3Crect x='60' y='92' width='150' height='8' rx='4' fill='%23f3dccb'/%3E%3Cg%3E%3Crect x='76' y='60' width='12' height='32' rx='2' fill='%23e7d3f1'/%3E%3Crect x='92' y='68' width='10' height='24' rx='2' fill='%23ffd9bd'/%3E%3Crect x='106' y='56' width='12' height='36' rx='2' fill='%23d3dcf5'/%3E%3C/g%3E%3Crect x='296' y='40' width='74' height='94' rx='6' fill='%23efe9f8' stroke='%23d9d0ee' stroke-width='3'/%3E%3Cpath d='M690 120c40-8 82 20 82 70v70H690z' fill='%23f1e6f1'/%3E%3Crect x='676' y='188' width='36' height='90' rx='16' fill='%23ecdfec'/%3E%3Crect x='70' y='222' width='680' height='20' rx='10' fill='%23f6d9c4'/%3E%3Crect x='120' y='242' width='14' height='80' fill='%23f1d3bd'/%3E%3Crect x='690' y='242' width='14' height='80' fill='%23f1d3bd'/%3E%3Cpath d='M128 222l8-48h44l8 48z' fill='%23f4e2d3'/%3E%3Cg fill='%23b7d8b1'%3E%3Cellipse cx='142' cy='150' rx='13' ry='34' transform='rotate(-24 142 150)'/%3E%3Cellipse cx='172' cy='146' rx='13' ry='36' transform='rotate(22 172 146)'/%3E%3Cellipse cx='157' cy='134' rx='12' ry='38'/%3E%3C/g%3E%3Crect x='240' y='186' width='46' height='36' rx='9' fill='%23dfe4f5'/%3E%3Cpath d='M286 195h8a9 9 0 0 1 0 18h-8' fill='none' stroke='%23dfe4f5' stroke-width='6'/%3E%3Crect x='330' y='112' width='196' height='112' rx='9' fill='%23cfd6f2'/%3E%3Crect x='340' y='122' width='176' height='92' rx='5' fill='%23e9ecfb'/%3E%3Ctext x='428' y='182' font-family='monospace' font-size='38' font-weight='700' text-anchor='middle' fill='%238c96d6'%3E%26lt;/%26gt;%3C/text%3E%3Cpath d='M306 224h244l-14 14H320z' fill='%23dcdff3'/%3E%3Cpath d='M572 222a40 40 0 0 1 80 0' fill='none' stroke='%237b87b8' stroke-width='11' stroke-linecap='round'/%3E%3Cellipse cx='572' cy='224' rx='16' ry='23' fill='%238e9bc6'/%3E%3Cellipse cx='652' cy='224' rx='16' ry='23' fill='%238e9bc6'/%3E%3Cpath d='M838 232l6-40h30l6 40z' fill='%23f4e2d3'/%3E%3Cg fill='%23b7d8b1'%3E%3Cellipse cx='846' cy='170' rx='9' ry='26' transform='rotate(-20 846 170)'/%3E%3Cellipse cx='872' cy='166' rx='9' ry='28' transform='rotate(20 872 166)'/%3E%3C/g%3E%3C/svg%3E") center bottom / contain no-repeat;
+    opacity: 0.85;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 100%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 100%);
+    pointer-events: none;
+  }
+  .lounge-modal .lounge-feed > * { position: relative; z-index: 1; }
+  .lounge-modal .lounge-empty {
+    margin: auto auto 6px;
+    max-width: 420px;
+    font-size: 0;
+    line-height: 0;
+  }
+  .lounge-modal .lounge-empty::before {
+    content: 'No messages yet.';
+    order: 0;
+    width: auto;
+    height: auto;
+    margin: 0 0 10px;
+    background: none;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--d-ink);
+  }
+  .lounge-modal .lounge-empty::after {
+    content: 'Start the conversation, share ideas, or just vibe with the crew.';
+    order: 0;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.5;
+    color: var(--d-soft);
+  }
+  /* direct messages and groups keep their own greeting text */
+  .lounge-modal .lounge-chat:has(.lounge-chat-head) .lounge-empty { font-size: 18px; line-height: 1.5; }
+  .lounge-modal .lounge-chat:has(.lounge-chat-head) .lounge-empty::before,
+  .lounge-modal .lounge-chat:has(.lounge-chat-head) .lounge-empty::after { display: none; }
+
+  /* player: music note inside the add field, orange toggle, footer divider */
+  .lounge-modal .lounge-music.is-pinned .lounge-music__add input {
+    padding-left: 54px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V6l10-2v12'/%3E%3Ccircle cx='6.5' cy='18' r='2.5'/%3E%3Ccircle cx='16.5' cy='16' r='2.5'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 22px center;
+    background-size: 22px 22px;
+  }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__add input:placeholder-shown { background-color: var(--d-card-solid); }
+  .lounge-modal .lounge-music.is-pinned .lounge-music__now-title { font-weight: 700; }
+  .lounge-modal .lounge-chill__card[aria-label='Now playing'] { background: color-mix(in srgb, var(--d-lav) 55%, var(--d-card-solid)); }
+  .lounge-modal .lounge-chill__switch input:checked + .lounge-chill__track { background: var(--d-accent-grad); }
+  .lounge-modal .lounge-chill__foot {
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid var(--d-border);
+  }
+  .lounge-modal .lounge-chill__foot .lounge-chill__link { border-left-width: 1px; font-weight: 600; font-size: 14.5px; }
+  .lounge-modal .lounge-chill__switch { font-size: 14.5px; }
+}
+
+@media (min-width: 901px) and (max-width: 1280px) {
+  .lounge-modal { --sb-w: 204px; }
+  .lounge-modal .lounge-split,
+  .lounge-modal .lounge-split.has-chill,
+  .lounge-modal .lounge-split.is-solo { padding-right: 20px; }
+  .lounge-modal .lounge-header { padding-inline: 28px; }
+  .lounge-modal .lounge-header .lounge-iconbtn,
+  .lounge-modal .lounge-header .lounge-bgm-toggle { gap: 12px; padding: 0 14px; }
+}
+/* Music button: gets the same orange highlight as the other sidebar rows when it is the active one */
+@media (min-width: 901px) {
+  .lounge-modal .lounge-header .lounge-chill-toggle.is-active,
+  .lounge-modal .lounge-header .lounge-chill-toggle[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--orange) 15%, var(--d-card-solid));
+    color: var(--orange);
+    box-shadow: none;
+  }
+  .lounge-modal .lounge-header .lounge-chill-toggle.is-active::after,
+  .lounge-modal .lounge-header .lounge-chill-toggle[aria-pressed='true']::after {
+    color: var(--orange);
+    font-weight: 700;
+  }
+}
+
+/* ===================================================================
+   GROUP / DM HEADER: matches the pastel dashboard
+   Avatar rail with soft rings + a clean header card (icon, name,
+   members chip, pin). Styling only, no markup changes.
+   =================================================================== */
+.lounge-modal .lounge-chats {
+  gap: 12px;
+  padding: 16px 30px 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+/* avatar rail */
+.lounge-modal .lounge-chats__actions { min-width: 0; }
+.lounge-modal .lounge-chats__rail {
+  gap: 12px;
+  margin: 0;
+  padding: 4px 2px 6px;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.lounge-modal .lounge-chat-av__img {
+  width: 48px;
+  height: 48px;
+  padding: 3px;
+  background: var(--d-border);
+  box-shadow: 0 8px 16px -12px rgba(120, 80, 40, 0.5);
+}
+.lounge-modal .lounge-chat-av:hover .lounge-chat-av__img { background: color-mix(in srgb, var(--orange) 40%, var(--d-border)); }
+.lounge-modal .lounge-chat-av.is-active .lounge-chat-av__img {
+  background: var(--d-accent-grad);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--orange) 16%, transparent), 0 12px 20px -10px rgba(249, 128, 47, 0.7);
+}
+.lounge-modal .lounge-chat-av__inner { border: 2px solid var(--d-card-solid); background: var(--d-card-solid); }
+.lounge-modal .lounge-chat-av__online,
+.lounge-modal .lounge-chat-av__badge { border-color: var(--d-card-solid); }
+.lounge-modal .lounge-chat-av__pin { border-color: var(--d-card-solid); }
+
+/* header card */
+.lounge-modal .lounge-chat-head {
+  gap: 14px;
+  padding: 12px 14px 12px 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--d-border);
+  border-radius: 18px;
+  background: var(--d-card-solid);
+  box-shadow: 0 14px 28px -24px rgba(120, 80, 40, 0.45);
+}
+.lounge-modal .lounge-chat-title { gap: 12px; min-height: 0; padding: 0; }
+.lounge-modal .lounge-chat-title > img { width: 38px; height: 38px; box-shadow: 0 0 0 2px var(--d-card-solid), 0 0 0 3.5px color-mix(in srgb, var(--orange) 45%, transparent); }
+.lounge-modal .lounge-chat-title .lounge-group-icon.is-sm {
+  width: 38px;
+  height: 38px;
+  font-size: 19px;
+  box-shadow: 0 10px 18px -10px rgba(249, 128, 47, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.lounge-modal .lounge-chat-title b {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--d-ink);
+}
+
+/* members chip: lavender, like the Now playing card */
+.lounge-modal .lounge-chat-title__members {
+  gap: 6px;
+  padding: 6px 13px;
+  border: 1px solid var(--d-lav-border);
+  border-radius: 999px;
+  background: var(--d-lav);
+  color: var(--d-label);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.lounge-modal .lounge-chat-title__members svg { width: 14px; height: 14px; opacity: 1; }
+.lounge-modal .lounge-chat-title__members:hover {
+  border-color: color-mix(in srgb, var(--orange) 50%, var(--d-lav-border));
+  background: color-mix(in srgb, var(--orange) 10%, var(--d-lav));
+  color: var(--orange);
+}
+
+/* online / offline pill for DMs */
+.lounge-modal .lounge-chat-title .lounge-status {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--d-chip);
+  font-size: 12px;
+  font-weight: 700;
+}
+.lounge-modal .lounge-chat-title b + .lounge-status::before { margin-right: 7px; }
+
+/* pin + music buttons */
+.lounge-modal .lounge-chat-head__right { gap: 8px; }
+.lounge-modal .lounge-chip {
+  height: 38px;
+  border: 0;
+  background: var(--d-chip);
+  color: var(--d-nav);
+  box-shadow: none;
+}
+.lounge-modal .lounge-chip.lounge-chip--icon-only { width: 38px; height: 38px; padding: 0; }
+.lounge-modal .lounge-chip--icon-only svg { width: 16px; height: 16px; }
+.lounge-modal .lounge-chip:hover {
+  background: color-mix(in srgb, var(--orange) 14%, var(--d-card-solid));
+  color: var(--orange);
+  box-shadow: none;
+}
+.lounge-modal .lounge-chip.is-active {
+  background: var(--d-accent-grad);
+  color: #fff;
+  box-shadow: 0 10px 18px -10px rgba(249, 128, 47, 0.8);
+}
+
+@media (max-width: 900px) {
+  .lounge-modal .lounge-chats { padding: 10px 14px 0; }
+  .lounge-modal .lounge-chat-head { padding: 10px 12px; margin-bottom: 10px; }
+  .lounge-modal .lounge-chat-title b { font-size: 16px; }
+}
+
+/* ===================================================================
+   COMPACT GROUP HEADER: one slim row so the chat feed keeps its height
+   avatars on the left, chat name + members + pin on the same line.
+   (overrides the bigger version above)
+   =================================================================== */
+.lounge-modal .lounge-chats {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 14px;
+  padding: 8px 24px;
+  border-bottom: 0;
+}
+.lounge-modal .lounge-chats__actions { flex: 0 1 auto; max-width: 42%; min-width: 0; }
+.lounge-modal .lounge-chats__rail { gap: 8px; padding: 3px 2px; }
+.lounge-modal .lounge-chat-av__img { width: 36px; height: 36px; padding: 2px; box-shadow: none; }
+.lounge-modal .lounge-chat-av.is-active .lounge-chat-av__img {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 14%, transparent);
+}
+.lounge-modal .lounge-group-icon { font-size: 15px; }
+.lounge-modal .lounge-chat-av__online { width: 10px; height: 10px; border-width: 2px; }
+.lounge-modal .lounge-chat-av__badge { min-width: 15px; height: 15px; font-size: 9px; }
+.lounge-modal .lounge-chat-av__pin { width: 13px; height: 13px; }
+
+/* header: no card, just a line next to the avatars */
+.lounge-modal .lounge-chat-head {
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border: 0;
+  border-left: 1px solid var(--d-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.lounge-modal .lounge-chat-title { gap: 9px; }
+.lounge-modal .lounge-chat-title > img,
+.lounge-modal .lounge-chat-title .lounge-group-icon.is-sm { width: 28px; height: 28px; }
+.lounge-modal .lounge-chat-title .lounge-group-icon.is-sm { font-size: 14px; }
+.lounge-modal .lounge-chat-title b { font-size: 15.5px; }
+.lounge-modal .lounge-chat-title__members { padding: 4px 10px; font-size: 11.5px; }
+.lounge-modal .lounge-chat-title .lounge-status { padding: 3px 10px; font-size: 11.5px; }
+.lounge-modal .lounge-chip,
+.lounge-modal .lounge-chip.lounge-chip--icon-only { height: 32px; }
+.lounge-modal .lounge-chip.lounge-chip--icon-only { width: 32px; }
+
+/* the stories row above also gives some height back */
+@media (min-width: 901px) {
+  .lounge-modal .lounge-stories { padding-top: 10px; padding-bottom: 8px; }
+}
+@media (max-width: 900px) {
+  .lounge-modal .lounge-chats { padding: 6px 14px; gap: 10px; }
+  .lounge-modal .lounge-chat-head { padding-left: 10px; }
+}
+
+/* ===================================================================
+   SMALLER STORIES ROW (avatars + notes), a bit slimmer but still roomy
+   =================================================================== */
+@media (min-width: 901px) {
+  .lounge-modal .lounge-stories { gap: 14px; padding: 8px 26px 8px; }
+  .lounge-modal .lounge-story-item { width: 84px; gap: 4px; }
+  .lounge-modal .lounge-story-item.is-me::after { right: -9px; bottom: 6px; height: 54px; }
+  .lounge-modal .lounge-ring__inner { zoom: 1.2; }
+  .lounge-modal .lounge-avatar-badge { width: 12px; height: 12px; border-width: 2px; }
+  .lounge-modal .lounge-story-name { max-width: 80px; margin-top: 2px; font-size: 14px; }
+  .lounge-modal .lounge-story-time { font-size: 10px; }
+  .lounge-modal .lounge-story-react { font-size: 9.5px; }
+
+  /* notes */
+  .lounge-modal .lounge-note-bubble { min-height: 26px; margin-bottom: 6px; padding: 4px 9px; font-size: 10.5px; }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble {
+    gap: 6px;
+    margin: 0 0 6px -2px;
+    padding: 6px 13px 6px 10px;
+    font-size: 12.5px;
+  }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble::before { width: 14px; height: 14px; }
+  .lounge-modal .lounge-story-item.is-me .lounge-note-bubble > span { max-width: 120px; }
+}
+
+/* ===================================================================
+   NOTE REACTIONS: emojis sit on the note bubble, and a burst of that
+   emoji pops out of the bubble when someone reacts
+   =================================================================== */
+.lounge-note-bubble,
+.lounge-noteview__bubble,
+.lounge-note-modal__bubble-preview { position: relative; }
+
+.lounge-nr {
+  position: absolute;
+  right: -8px;
+  bottom: -11px;
+  z-index: 4;
+  display: inline-flex;
+  pointer-events: none;
+}
+.lounge-nr__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: -5px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--l-surface, #fff);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 6px 12px -6px rgba(6, 12, 26, 0.5);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  animation: lounge-nr-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.lounge-nr__chip:first-child { margin-left: 0; }
+.lounge-nr__chip b { font-size: 9px; font-weight: 800; color: var(--muted); }
+@keyframes lounge-nr-pop { from { opacity: 0; transform: scale(0.2); } }
+
+.lounge-nr__bursts {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.lounge-nr__burst {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0;
+  animation: lounge-nr-burst 1.3s ease-out both;
+}
+@keyframes lounge-nr-burst {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.3); }
+  18% { opacity: 1; transform: translate(calc(-50% + var(--dx, 0px) * 0.3), -90%) scale(1.5); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), -230%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lounge-nr__chip { animation: none; }
+  .lounge-nr__burst { animation-duration: 0.01s; }
+}
+
+/* Music button hides the Lounge radio pill (playback continues) */
+.lounge-music-slot.is-radio-hidden,
+.lounge-group-music-slot.is-radio-hidden { display: none !important; }
+/* Lounge radio pill: tucked away while the Chill Zone is open (audio keeps playing), and never over the online badge */
+.lounge-music.is-away { visibility: hidden; opacity: 0; pointer-events: none; }
+@media (min-width: 901px) {
+  /* keep the header's free space clear of the online badge + close button on the right */
+  .lounge-modal .lounge-header { padding-right: 360px; }
+}
+
+/* "as JM" + "Change avatar" strip: smaller and tighter */
+.lounge-modal .lounge-bottom__meta {
+  gap: 8px;
+  margin: 0 8px 4px 10px;
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+.lounge-modal .lounge-name-btn {
+  padding: 1px 8px;
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+.lounge-modal .lounge-avatar-change-btn {
+  padding: 0;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+/* the "as JM / Change avatar" line now sits right on top of the message box */
+.lounge-modal .lounge-bottom__meta { margin: 0 8px 3px 14px; }
+
+/* composer area: line sits closer to the meta row, less space under the message box */
+@media (min-width: 901px) {
+  .lounge-modal .lounge-chat .lounge-bottom { padding: 8px 26px 12px; }
+  .lounge-modal .lounge-typing { margin: 0; height: 14px; }
+}

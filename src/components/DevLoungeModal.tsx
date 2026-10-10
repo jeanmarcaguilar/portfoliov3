@@ -198,7 +198,6 @@ const dmId = (a: string, b: string) => `dm_${[a, b].sort().join('_')}`
 const chatsNotSetUp = (err: any) =>
   err?.code === '42P01' || err?.code === '42703' || /lounge_conversations|conversation_id/.test(String(err?.message ?? ''))
 // Which groups have their music player switched on, on this device (nothing is stored in the database)
-const GROUP_MUSIC_ON_KEY = 'lounge_group_music_on_v1'
 
 /* ---------- tiny inline icons (no dependency on the slab icon set) ---------- */
 const iconProps = {
@@ -254,6 +253,53 @@ const UsersIcon = () => (
     <path d="M16 3.1a4 4 0 0 1 0 7.8" />
   </svg>
 )
+
+// Emojis people reacted to a note with: they sit on the note bubble, and a little burst of that
+// emoji pops out of the bubble the moment a new reaction arrives.
+function NoteReacts({ items }: { items: { emoji: string; count: number; names?: string[] }[] }) {
+  const prev = useRef<Map<string, number> | null>(null)
+  const [bursts, setBursts] = useState<{ id: number; emoji: string; dx: number }[]>([])
+  const key = items.map((g) => `${g.emoji}:${g.count}`).join('|')
+  useEffect(() => {
+    const now = new Map(items.map((g) => [g.emoji, g.count] as const))
+    const before = prev.current
+    prev.current = now
+    if (!before) return // first render: nothing "just arrived"
+    const fresh: { id: number; emoji: string; dx: number }[] = []
+    now.forEach((count, emoji) => {
+      const gained = count - (before.get(emoji) ?? 0)
+      for (let i = 0; i < Math.min(gained, 3); i++) fresh.push({ id: Date.now() + Math.random(), emoji, dx: Math.round((Math.random() - 0.5) * 36) })
+    })
+    if (!fresh.length) return
+    setBursts((b) => [...b, ...fresh])
+    const ids = new Set(fresh.map((f) => f.id))
+    const t = window.setTimeout(() => setBursts((b) => b.filter((x) => !ids.has(x.id))), 1500)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+  if (!items.length && !bursts.length) return null
+  return (
+    <>
+      {items.length > 0 && (
+        <span className="lounge-nr" aria-label={`Reactions: ${items.map((g) => g.emoji).join(' ')}`}>
+          {items.slice(0, 3).map((g) => (
+            <span key={g.emoji} className="lounge-nr__chip" title={g.names?.join(', ')}>
+              {g.emoji}
+              {g.count > 1 && <b>{g.count}</b>}
+            </span>
+          ))}
+        </span>
+      )}
+      <span className="lounge-nr__bursts" aria-hidden="true">
+        {bursts.map((b) => (
+          <span key={b.id} className="lounge-nr__burst" style={{ '--dx': `${b.dx}px` } as CSSProperties}>
+            {b.emoji}
+          </span>
+        ))}
+      </span>
+    </>
+  )
+}
 
 function LoungeAvatar({ seed, size = 36 }: { seed: string; size?: number }) {
   const avatarUrl = `https://api.dicebear.com/10.x/lorelei/svg?seed=${encodeURIComponent(seed)}`
@@ -1168,8 +1214,10 @@ function LoungeMusic({
   storageKey = MUSIC_KEY,
   liveLabel = 'Playing in the lounge',
   pinned = false,
+  away = false,
 }: {
   open: boolean
+  away?: boolean // global player only: the header pill is tucked away (Chill Zone open / radio hidden); audio keeps playing
   suppressed?: boolean // global player only: a group's own player is showing, so this one steps aside
   covered?: boolean // a sheet (new group, new message, avatar picker...) is open over the lounge
   others?: LoungeListener[] // other members who are playing a song right now
@@ -1543,7 +1591,15 @@ function LoungeMusic({
     const until = performance.now() + 800 // the modal animates in, so keep measuring for a moment
     const measure = () => {
       const r = slot.getBoundingClientRect()
-      setDock((prev) => (prev && Math.abs(prev.top - r.top) < 0.5 && Math.abs(prev.left - r.left) < 0.5 ? prev : { top: r.top, left: r.left }))
+      if (!r.width || !r.height) return // the slot is hidden: keep the last good spot instead of jumping to 0,0
+      let left = r.left
+      // never sit on top of the "online" badge: stop the pill's right edge just before the badge
+      const badge = slot.closest('.lounge-modal')?.querySelector('.lounge-live-badge--btn') as HTMLElement | null
+      const b = badge?.getBoundingClientRect()
+      if (b && b.width && r.top < b.bottom && r.top + r.height > b.top && left + r.width > b.left - 14) {
+        left = Math.max(0, b.left - 14 - r.width)
+      }
+      setDock((prev) => (prev && Math.abs(prev.top - r.top) < 0.5 && Math.abs(prev.left - left) < 0.5 ? prev : { top: r.top, left }))
     }
     const loop = () => {
       measure()
@@ -1812,7 +1868,7 @@ function LoungeMusic({
 
   return (
     <div
-      className={`lounge-music ${mode}${pinned ? ' is-pinned' : ''}${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}${covered ? ' is-covered' : ''}${suppressed && !isGroup ? ' is-suppressed' : ''}${popUp ? ' is-up' : ''}${popLeft ? ' is-left' : ''}`}
+      className={`lounge-music ${mode}${pinned ? ' is-pinned' : ''}${playing ? ' is-playing' : ''}${expanded ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}${covered ? ' is-covered' : ''}${suppressed && !isGroup ? ' is-suppressed' : ''}${away && !isGroup ? ' is-away' : ''}${popUp ? ' is-up' : ''}${popLeft ? ' is-left' : ''}`}
       ref={rootRef}
       style={free && pos ? { top: pos.y, left: pos.x, right: 'auto', bottom: 'auto' } : docked && dock ? { top: dock.top, left: dock.left } : undefined}
       onPointerDown={keepOut}
@@ -2099,17 +2155,12 @@ export default function DevLoungeModal({
   // Community game (lives beside the chat)
   const [gameRefresh, setGameRefresh] = useState(0) // bumps when another member finishes a round
   const [gamesOpen, setGamesOpen] = useState(false) // the person tapped the Games button
+  // which sidebar button was clicked last (drives the orange highlight): Lounge or Music
+  const [navFocus, setNavFocus] = useState<'lounge' | 'music'>('lounge')
+  const [chillHidden, setChillHidden] = useState(false) // the person closed the Chill Zone (its close button, or the Music button)
   const [gamePlaying, setGamePlaying] = useState(false) // a game / challenge is active
   const showGames = gamesOpen || gamePlaying
-  // Chill Zone: the calm side panel that takes the games' place when they are closed.
-  // Both choices are remembered on this device.
-  const [chillHidden, setChillHidden] = useState(() => {
-    try {
-      return localStorage.getItem('lounge_chill_hidden_v1') === '1'
-    } catch {
-      return false
-    }
-  })
+  // Chill Zone: the calm side panel (with the music player) that takes the games' place when they are closed.
   const [shareActivity, setShareActivity] = useState(() => {
     try {
       return localStorage.getItem('lounge_share_activity_v1') !== '0'
@@ -2117,7 +2168,9 @@ export default function DevLoungeModal({
       return true
     }
   })
-  const showSide = showGames || !chillHidden
+  // The side panel (Chill Zone, or the games) is always there now, so the music player in it is always on.
+  // (Phones/tablets hide the side panel with CSS and keep the header pill.)
+  const showSide = showGames || !chillHidden // closing the Chill Zone folds the side panel away
   // Desktop only: the Chill Zone is where the music plays. On phones/tablets (<= 900px) the Chill Zone is
   // hidden, so the music pill and /play behave exactly as before.
   const [isWide, setIsWide] = useState(() => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 901px)').matches : true))
@@ -2129,17 +2182,11 @@ export default function DevLoungeModal({
     mq.addEventListener?.('change', on)
     return () => mq.removeEventListener?.('change', on)
   }, [])
-  const chillPlayer = isWide && showSide && !showGames
+  const chillPlayer = false // the music lives in the header pill, never in the Chill Zone
+  // The header music pill steps aside while the Chill Zone panel is showing (desktop), and comes back when it closes
+  const chillOpen = isWide && !showGames && !chillHidden
+  const hidePill = chillOpen
   const [chillMusicSlot, setChillMusicSlot] = useState<HTMLDivElement | null>(null)
-  const toggleChillHidden = () =>
-    setChillHidden((v) => {
-      try {
-        localStorage.setItem('lounge_chill_hidden_v1', v ? '0' : '1')
-      } catch {
-        /* storage unavailable: the choice just won't be remembered */
-      }
-      return !v
-    })
   const toggleShareActivity = () =>
     setShareActivity((v) => {
       try {
@@ -2256,17 +2303,9 @@ export default function DevLoungeModal({
   const [groupName, setGroupName] = useState('')
   const [groupIcon, setGroupIcon] = useState(GROUP_ICONS[0])
   const [groupPick, setGroupPick] = useState<string[]>([])
-  const [groupMusicOn, setGroupMusicOn] = useState<Record<string, boolean>>(() => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(GROUP_MUSIC_ON_KEY) || '{}')
-      return parsed && typeof parsed === 'object' ? parsed : {}
-    } catch {
-      return {}
-    }
-  })
   const [memberQuery, setMemberQuery] = useState('')
   // groups whose player was switched on automatically because a member started playing (not saved)
-  const [groupAuto, setGroupAuto] = useState<Record<string, boolean>>({})
+  const [, setGroupAuto] = useState<Record<string, boolean>>({})
   // groups where I closed the player while someone was still playing: don't pop it open again
   const [groupDismissed, setGroupDismissed] = useState<Record<string, boolean>>({})
   const activeChatRef = useRef('global')
@@ -2358,35 +2397,7 @@ export default function DevLoungeModal({
   conversationsRef.current = conversations
   const activeConv = activeChat === 'global' ? null : conversations.find((c) => c.id === activeChat) ?? null
   // the open group's own music player is shown only when this person turned it on (button in the group header)
-  const activeMusic = !!activeConv && (chillPlayer || !!groupMusicOn[activeConv.id] || !!groupAuto[activeConv.id])
-  const toggleGroupMusic = (id: string) => {
-    if (activeMusic) {
-      // close it, and stay closed even if someone is still playing
-      setGroupAuto((p) => ({ ...p, [id]: false }))
-      setGroupDismissed((p) => ({ ...p, [id]: true }))
-      setGroupMusicOn((prev) => {
-        const next = { ...prev }
-        delete next[id]
-        try {
-          localStorage.setItem(GROUP_MUSIC_ON_KEY, JSON.stringify(next))
-        } catch {
-          /* storage unavailable: it lasts for this session */
-        }
-        return next
-      })
-    } else {
-      setGroupDismissed((p) => ({ ...p, [id]: false }))
-      setGroupMusicOn((prev) => {
-        const next = { ...prev, [id]: true }
-        try {
-          localStorage.setItem(GROUP_MUSIC_ON_KEY, JSON.stringify(next))
-        } catch {
-          /* storage unavailable: it lasts for this session */
-        }
-        return next
-      })
-    }
-  }
+  const activeMusic = !!activeConv && true // the pill is always present in group/DM chats
   // Someone in the open group starts playing: show the group player by itself, no button press needed
   const someoneIsPlayingInGroup = Object.keys(groupListeners).length > 0
   useEffect(() => {
@@ -3967,7 +3978,7 @@ export default function DevLoungeModal({
 
   // The player is portaled straight to <body>, outside the modal, so it keeps playing after the lounge closes
   const musicEl = createPortal(
-    chillPlayer ? null : <LoungeMusic open={!!open} suppressed={!!open && activeMusic} covered={!!open && (needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet || peopleOpen || groupInfoOpen || !!viewNoteId)} others={musicOthers} onNowPlaying={handleNowPlaying} commandRef={musicCommandRef} slotRef={musicSlotRef} />,
+    chillPlayer ? null : <LoungeMusic open={!!open} away={hidePill} suppressed={!!open && activeMusic} covered={!!open && (needsRegistration || isChoosingAvatar || isNoteModalOpen || !!chatSheet || peopleOpen || groupInfoOpen || !!viewNoteId)} others={musicOthers} onNowPlaying={handleNowPlaying} commandRef={musicCommandRef} slotRef={musicSlotRef} />,
     document.body,
   )
 
@@ -4040,7 +4051,10 @@ export default function DevLoungeModal({
                 </div>
                 {vs && live ? (
                   <div className="lounge-noteview__body">
-                    <div className="lounge-noteview__bubble">{text}</div>
+                    <div className="lounge-noteview__bubble">
+                      {text}
+                      <NoteReacts items={noteReactionsFor(vs.deviceId, at)} />
+                    </div>
                     <div className="lounge-ring lounge-ring--live">
                       <div className="lounge-ring__inner">
                         <LoungeAvatar seed={vs.avatarSeed} size={46} />
@@ -4069,15 +4083,6 @@ export default function DevLoungeModal({
                               )
                             })}
                           </div>
-                          {got.length > 0 && (
-                            <div className="lounge-notereact__chips">
-                              {got.map((g) => (
-                                <span key={g.emoji} className={`lounge-notereact__chip${g.mine ? ' is-mine' : ''}`} title={g.names.join(', ')}>
-                                  {g.emoji} <b>{g.count}</b>
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       )
                     })()}
@@ -4113,6 +4118,7 @@ export default function DevLoungeModal({
                     onChange={(e) => setNoteModalInput(e.target.value)}
                     autoFocus
                   />
+                  {isNoteLive(userNote, userNoteUpdatedAt) && <NoteReacts items={noteReactionsFor(deviceId, userNoteUpdatedAt)} />}
                 </div>
 
                 <div className="lounge-ring lounge-ring--live lounge-note-modal__avatar-wrap">
@@ -4126,19 +4132,6 @@ export default function DevLoungeModal({
                   {isNoteLive(userNote, userNoteUpdatedAt) ? formatTimeAgo(userNoteUpdatedAt) : ''}
                 </div>
                 <div className="lounge-note-modal__count">{noteModalInput.length}/20</div>
-                {isNoteLive(userNote, userNoteUpdatedAt) &&
-                  (() => {
-                    const got = noteReactionsFor(deviceId, userNoteUpdatedAt)
-                    return got.length > 0 ? (
-                      <div className="lounge-notereact__chips" aria-label="Reactions to your note">
-                        {got.map((g) => (
-                          <span key={g.emoji} className="lounge-notereact__chip" title={g.names.join(', ')}>
-                            {g.emoji} <b>{g.count}</b>
-                          </span>
-                        ))}
-                      </div>
-                    ) : null
-                  })()}
               </div>
 
               <div className="lounge-note-modal__footer">
@@ -4438,31 +4431,45 @@ export default function DevLoungeModal({
           </div>
           <div className="lounge-header__right">
             <div className="lounge-header__chats" role="group" aria-label="Chats">
-              <button type="button" className={`lounge-iconbtn${activeChat === 'global' ? ' is-active' : ''}`} onClick={() => switchChat('global')} aria-pressed={activeChat === 'global'} aria-label="Global chat" title="Global chat">
+              <button
+                type="button"
+                className={`lounge-iconbtn${activeChat === 'global' && !showGames && !chatSheet && navFocus === 'lounge' ? ' is-active' : ''}`}
+                onClick={() => {
+                  setNavFocus('lounge')
+                  setGamesOpen(false)
+                  closeChatSheet()
+                  switchChat('global')
+                }}
+                aria-pressed={activeChat === 'global' && !showGames && !chatSheet && navFocus === 'lounge'}
+                aria-label="Global chat"
+                title="Global chat"
+              >
                 <GlobeIcon />
                 {(unread.global ?? 0) > 0 && <i className="lounge-chip__dot" aria-label="New messages" />}
               </button>
-              <button type="button" className="lounge-iconbtn" onClick={() => openChatSheet('group')} aria-label="New group chat" title="New group chat">
+              <button type="button" className={`lounge-iconbtn${chatSheet === 'group' ? ' is-active' : ''}`} onClick={() => openChatSheet('group')} aria-pressed={chatSheet === 'group'} aria-label="New group chat" title="New group chat">
                 <UsersIcon />
               </button>
-              <button type="button" className="lounge-iconbtn lounge-iconbtn--add" onClick={() => openChatSheet('dm')} aria-label="New direct message" title="New direct message">
+              <button type="button" className={`lounge-iconbtn lounge-iconbtn--add${chatSheet === 'dm' ? ' is-active' : ''}`} onClick={() => openChatSheet('dm')} aria-pressed={chatSheet === 'dm'} aria-label="New direct message" title="New direct message">
                 <Plus size={14} weight="bold" />
               </button>
             </div>
-            <div className={`lounge-music-slot${activeMusic ? ' is-collapsed' : ''}`} ref={musicSlotRef} aria-hidden="true" />
-            <div className="lounge-group-music-slot" ref={setGroupMusicSlot} />
-            {!showGames && (
-              <button
-                type="button"
-                className={`lounge-iconbtn lounge-chill-toggle${!chillHidden ? ' is-active' : ''}`}
-                onClick={toggleChillHidden}
-                aria-pressed={!chillHidden}
-                aria-label={chillHidden ? 'Show chill zone' : 'Hide chill zone'}
-                title={chillHidden ? 'Show chill zone' : 'Hide chill zone'}
-              >
-                ☕
-              </button>
-            )}
+            <div className={`lounge-music-slot${activeMusic ? ' is-collapsed' : ''}${hidePill ? ' is-radio-hidden' : ''}`} ref={musicSlotRef} aria-hidden="true" />
+            <div className={`lounge-group-music-slot${hidePill ? ' is-radio-hidden' : ''}`} ref={setGroupMusicSlot} />
+            <button
+              type="button"
+              className={`lounge-iconbtn lounge-chill-toggle${!chillHidden && !showGames ? ' is-active' : ''}`}
+              onClick={() => {
+                // opens / closes the Chill Zone (the radio pill is shown while it is closed; music keeps playing)
+                if (showGames) { setGamesOpen(false); setChillHidden(false) }
+                else setChillHidden((v) => !v)
+              }}
+              aria-pressed={!chillHidden && !showGames}
+              aria-label="Show or hide Chill Zone"
+              title="Show or hide Chill Zone"
+            >
+              ☕
+            </button>
             <button
               type="button"
               className={`lounge-iconbtn lounge-games-toggle${showGames ? ' is-active' : ''}`}
@@ -4516,6 +4523,7 @@ export default function DevLoungeModal({
                 {s.isMe ? (
                   <button type="button" className={`lounge-note-bubble${hasNote ? '' : ' is-empty'}`} onClick={openNote}>
                     <span>{hasNote ? note : 'Add note'}</span>
+                    {hasNote && <NoteReacts items={noteReactionsFor(s.deviceId, noteAt)} />}
                   </button>
                 ) : (
                   hasNote && (
@@ -4526,6 +4534,7 @@ export default function DevLoungeModal({
                       aria-label={`${s.name}'s note: ${note}`}
                     >
                       <span>{note}</span>
+                      <NoteReacts items={noteReactionsFor(s.deviceId, noteAt)} />
                     </button>
                   )
                 )}
@@ -4546,14 +4555,6 @@ export default function DevLoungeModal({
                   />
                 </div>
                 <span className="lounge-story-name">{s.isMe ? 'You' : s.name}</span>
-                {hasNote && (() => {
-                  const got = noteReactionsFor(s.deviceId, noteAt)
-                  return got.length > 0 ? (
-                    <span className="lounge-story-react" aria-label={`${got.reduce((n, g) => n + g.count, 0)} reactions`}>
-                      {got.slice(0, 3).map((g) => g.emoji).join('')} {got.reduce((n, g) => n + g.count, 0)}
-                    </span>
-                  ) : null
-                })()}
                 <span className="lounge-story-time">{hasNote ? formatTimeAgo(noteAt ?? undefined) : ''}</span>
               </div>
             )
@@ -4655,18 +4656,6 @@ export default function DevLoungeModal({
               >
                 <PinIcon />
               </button>
-              {!chillPlayer && (
-              <button
-                  type="button"
-                  className={`lounge-chip${activeMusic ? ' is-active' : ''}`}
-                  onClick={() => toggleGroupMusic(activeConv.id)}
-                  aria-pressed={activeMusic}
-                  title={activeMusic ? 'Hide this chat\'s music player' : 'Show this chat\'s music player at the top'}
-                >
-                  <NoteIcon />
-                  Music
-                </button>
-              )}
             </div>
             </div>
           )}
@@ -4690,9 +4679,6 @@ export default function DevLoungeModal({
                 commandRef={groupMusicCommandRef}
                 pinned={chillPlayer}
               />
-              {!chillPlayer && <button type="button" className="lounge-chat-head__hide" onClick={() => toggleGroupMusic(activeConv.id)} aria-label="Hide music player" title="Hide music player">
-                <X size={11} weight="bold" />
-              </button>}
             </>,
             (chillPlayer ? chillMusicSlot : groupMusicSlot) as HTMLDivElement,
           )}
@@ -4718,8 +4704,6 @@ export default function DevLoungeModal({
           {messages.length === 0 && (
             <div className="lounge-empty">{activeConv ? `This is the start of your chat with ${activeConv.name}. Say hi!` : 'No messages yet. Say hi and start the conversation.'}</div>
           )}
-
-          {messages.length > 0 && <div className="lounge-day">Today</div>}
 
           {messages.map((m, i) => {
             const prev = messages[i - 1]
@@ -4891,15 +4875,6 @@ export default function DevLoungeModal({
             </div>
           )}
 
-          <div className="lounge-bottom__meta">
-            <span className="lounge-name-btn">
-              as <b>{userName || 'Loading...'}</b>
-            </span>
-            <button type="button" className="lounge-avatar-change-btn" onClick={openAvatarPicker}>
-              Change avatar
-            </button>
-          </div>
-
           <div className={`lounge-typing${typingLabel ? ' is-visible' : ''}`} aria-live="polite">
             {typingLabel && (
               <>
@@ -4911,6 +4886,15 @@ export default function DevLoungeModal({
                 <span className="lounge-typing__text">{typingLabel}…</span>
               </>
             )}
+          </div>
+
+          <div className="lounge-bottom__meta">
+            <span className="lounge-name-btn">
+              as <b>{userName || 'Loading...'}</b>
+            </span>
+            <button type="button" className="lounge-avatar-change-btn" onClick={openAvatarPicker}>
+              Change avatar
+            </button>
           </div>
 
           <div className="lounge-form-wrap">
@@ -4982,7 +4966,7 @@ export default function DevLoungeModal({
               shareActivity={shareActivity}
               onToggleActivity={toggleShareActivity}
               onOpenGames={() => setGamesOpen(true)}
-              onHide={toggleChillHidden}
+              onHide={() => setChillHidden(true)}
               musicSlot={chillPlayer ? <div className="lounge-chill-music-slot" ref={setChillMusicSlot} /> : null}
             />
           )}
