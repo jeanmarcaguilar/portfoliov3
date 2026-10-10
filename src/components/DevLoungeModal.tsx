@@ -65,6 +65,52 @@ function playPing() {
   }
 }
 
+/* ---------- browser notifications ---------- */
+let notificationPermission: NotificationPermission = 'default'
+let lastNotificationAt = 0
+
+async function requestNotificationPermission(): Promise<boolean> {
+  if (typeof window === 'undefined' || !('Notification' in window)) return false
+  if (Notification.permission === 'granted') {
+    notificationPermission = 'granted'
+    return true
+  }
+  if (Notification.permission !== 'denied') {
+    const result = await Notification.requestPermission()
+    notificationPermission = result
+    return result === 'granted'
+  }
+  return false
+}
+
+function showBrowserNotification(title: string, body: string, icon?: string) {
+  if (typeof window === 'undefined' || !('Notification' in window)) return
+  if (notificationPermission !== 'granted') return
+  
+  const now = Date.now()
+  if (now - lastNotificationAt < 1000) return // debounce: several events at once = one notification
+  lastNotificationAt = now
+  
+  try {
+    const notification = new Notification(title, {
+      body,
+      icon: icon || '/favicon.ico',
+      tag: 'lounge-notification',
+    })
+    
+    // Focus the window when notification is clicked
+    notification.onclick = () => {
+      window.focus()
+      notification.close()
+    }
+    
+    // Auto-close after 5 seconds
+    setTimeout(() => notification.close(), 5000)
+  } catch (err) {
+    console.warn('Failed to show browser notification:', err)
+  }
+}
+
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 const isTmp = (id: unknown) => typeof id === 'string' && id.startsWith('tmp_')
@@ -2310,6 +2356,7 @@ export default function DevLoungeModal({
   const [groupDismissed, setGroupDismissed] = useState<Record<string, boolean>>({})
   const activeChatRef = useRef('global')
   const conversationsRef = useRef<Conversation[]>([])
+  const memberByDeviceRef = useRef<Map<string, LoungeMember>>(new Map())
   activeChatRef.current = activeChat
 
   // Visible feedback instead of silent console errors
@@ -2334,6 +2381,8 @@ export default function DevLoungeModal({
     const events = ['pointerdown', 'keydown', 'touchstart'] as const
     const unlock = () => {
       unlockPing()
+      // Also request notification permission on first interaction
+      requestNotificationPermission()
       events.forEach((ev) => window.removeEventListener(ev, unlock))
     }
     events.forEach((ev) => window.addEventListener(ev, unlock))
@@ -2346,6 +2395,7 @@ export default function DevLoungeModal({
     allMembers.forEach((m) => map.set(m.deviceId, m))
     return map
   }, [allMembers])
+  memberByDeviceRef.current = memberByDevice
 
   // One regex that recognises "@Name" for every known member (names may contain spaces)
   const mentionSource = useMemo(() => {
@@ -2559,8 +2609,14 @@ export default function DevLoungeModal({
       const isDm = conv?.kind === 'dm'
       // Sound: any new message in the global chat, a direct message to me, or an @mention of me
       if (!convKey || isMention || isDm) playPing()
-      if (isMention) showToast(`${m.author} mentioned you`)
-      else if (conv && elsewhere) showToast(conv.kind === 'dm' ? `${m.author} sent you a message` : `${m.author} in ${conv.name}`)
+      if (isMention) {
+        showToast(`${m.author} mentioned you`)
+        showBrowserNotification(`${m.author} mentioned you`, m.text?.substring(0, 100) || 'Check the chat')
+      } else if (conv && elsewhere) {
+        const toastMsg = conv.kind === 'dm' ? `${m.author} sent you a message` : `${m.author} in ${conv.name}`
+        showToast(toastMsg)
+        showBrowserNotification(toastMsg, m.text?.substring(0, 100) || 'New message')
+      }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawMessages])
@@ -2762,12 +2818,20 @@ export default function DevLoungeModal({
         .on('broadcast', { event: 'game-score' }, ({ payload }: any) => {
           if (!payload || payload.deviceId === deviceIdRef.current) return
           setGameRefresh((n) => n + 1)
-          showToast(`${payload.name} scored ${payload.score} in ${payload.game || 'Dev Trivia'}`)
+          const msg = `${payload.name} scored ${payload.score} in ${payload.game || 'Dev Trivia'}`
+          showToast(msg)
+          showBrowserNotification('Game Score Update', msg)
         })
         // Live 1v1 messages (invites, moves, scores). Every client receives them; the games
         // only act on the ones addressed to this device.
         .on('broadcast', { event: 'duel' }, ({ payload }: any) => {
           if (!payload || payload.from === deviceIdRef.current) return
+          // Show notification for game invites
+          if (payload.type === 'invite') {
+            const msg = `${payload.fromName} invited you to play ${payload.game || 'a game'}`
+            showToast(msg)
+            showBrowserNotification('Game Invitation', msg)
+          }
           duelListeners.current.forEach((fn) => fn(payload))
         })
         // Messages (new messages, replies, edits) are applied straight from the event payload,
@@ -2779,8 +2843,17 @@ export default function DevLoungeModal({
           realtimeAliveRef.current = true
           fetchData()
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'lounge_profiles' }, () => {
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lounge_profiles' }, (payload: any) => {
           realtimeAliveRef.current = true
+          const { new: newProfile, old: oldProfile } = payload
+          // Notify when someone shares/updates their note (if the note content changed)
+          if (newProfile && oldProfile && newProfile.note !== oldProfile.note && newProfile.device_id !== deviceIdRef.current) {
+            const member = memberByDeviceRef.current.get(newProfile.device_id)
+            const name = member?.name || 'Someone'
+            const msg = newProfile.note ? `${name} shared a note` : `${name} removed their note`
+            showToast(msg)
+            showBrowserNotification('Note Shared', msg)
+          }
           fetchData()
         })
         .subscribe((status: string, err?: Error) => {
