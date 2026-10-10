@@ -2109,6 +2109,8 @@ export default function DevLoungeModal({
   // Onboarding & Modals
   const [needsRegistration, setNeedsRegistration] = useState(false)
   const [registrationInput, setRegistrationInput] = useState('')
+  const [nameError, setNameError] = useState('')
+  const [registering, setRegistering] = useState(false)
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
   const [noteModalInput, setNoteModalInput] = useState('')
   const [isChoosingAvatar, setIsChoosingAvatar] = useState(false)
@@ -3015,9 +3017,35 @@ export default function DevLoungeModal({
 
   const handleRegisterUser = async (e: FormEvent) => {
     e.preventDefault()
-    if (!registrationInput.trim()) return
+    if (registering) return
 
-    const name = registrationInput.trim()
+    // Tidy the name: trim and collapse repeated spaces
+    const name = registrationInput.trim().replace(/\s+/g, ' ')
+    if (!name) return
+
+    setRegistering(true)
+    setNameError('')
+
+    // Is this name already used by someone else? (case-insensitive: "Sam" == "sam")
+    const pattern = name.replace(/[\\%_]/g, (c) => `\\${c}`)
+    const { data: taken, error: lookupError } = await supabase
+      .from('lounge_profiles')
+      .select('device_id')
+      .ilike('name', pattern)
+      .neq('device_id', deviceId)
+      .limit(1)
+
+    if (lookupError) {
+      setRegistering(false)
+      setNameError(`Could not check the name: ${lookupError.message}`)
+      return
+    }
+    if (taken && taken.length > 0) {
+      setRegistering(false)
+      setNameError(`"${name}" is already in use. Please pick a different name.`)
+      return
+    }
+
     const randomSalt = AVATAR_SALTS[Math.floor(Math.random() * AVATAR_SALTS.length)]
     const nowIso = new Date().toISOString()
 
@@ -3033,8 +3061,20 @@ export default function DevLoungeModal({
       },
     ])
 
+    setRegistering(false)
+
     if (error) {
-      showToast(`Registration failed: ${error.message}`)
+      // Unique violation = someone grabbed the name a moment ago.
+      // Shown inside the sheet (a toast would sit hidden behind it).
+      const e = error as { code?: string; message?: string; details?: string }
+      const text = `${e.message ?? ''} ${e.details ?? ''}`.toLowerCase()
+      const isDuplicate =
+        e.code === '23505' || text.includes('duplicate') || text.includes('unique') || text.includes('already exists')
+      setNameError(
+        isDuplicate
+          ? `"${name}" is already in use. Please pick a different name.`
+          : `Registration failed: ${e.message ?? 'please try again'}`,
+      )
       return
     }
 
@@ -4062,11 +4102,23 @@ export default function DevLoungeModal({
                 placeholder="Your name"
                 maxLength={20}
                 value={registrationInput}
-                onChange={(e) => setRegistrationInput(e.target.value)}
+                onChange={(e) => {
+                  setRegistrationInput(e.target.value)
+                  if (nameError) setNameError('')
+                }}
+                aria-invalid={!!nameError}
+                aria-describedby={nameError ? 'lounge-name-error' : undefined}
                 autoFocus
               />
-              <button type="submit">Join lounge</button>
+              <button type="submit" disabled={registering || !registrationInput.trim()}>
+                {registering ? 'Checking…' : 'Join lounge'}
+              </button>
             </form>
+            {nameError && (
+              <p id="lounge-name-error" className="lounge-sheet__error" role="alert">
+                {nameError}
+              </p>
+            )}
           </div>
         )}
 

@@ -825,6 +825,25 @@ button.lounge-note-bubble:hover {
   outline: none;
 }
 
+.lounge-sheet__form input[aria-invalid='true'] {
+  border-color: #e5484d;
+}
+
+.lounge-sheet__error {
+  width: 100%;
+  max-width: 320px;
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: #e5484d;
+}
+
+.lounge-sheet__form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .lounge-sheet__form input:focus {
   border-color: var(--orange);
   box-shadow: 0 0 0 4px rgba(255, 122, 26, 0.14);
