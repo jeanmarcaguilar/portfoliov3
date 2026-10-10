@@ -8360,7 +8360,7 @@ button.lounge-note-bubble:focus-visible { outline: 2px solid var(--orange); outl
   .lounge-modal .lounge-header .lounge-iconbtn[aria-label='Global chat']::after { content: 'Lounge'; }
   .lounge-modal .lounge-header .lounge-games-toggle::after { content: 'Games'; }
   .lounge-modal .lounge-header .lounge-chill-toggle::after { content: 'Music'; }
-  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='New group chat']::after { content: 'Friends'; }
+  .lounge-modal .lounge-header .lounge-iconbtn[aria-label='New group chat']::after { content: 'Create Group'; }
   .lounge-modal .lounge-header .lounge-iconbtn--add::after { content: 'New message'; }
   .lounge-modal .lounge-header .lounge-bgm-toggle::after { content: 'Sound'; }
 
