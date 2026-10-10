@@ -2195,10 +2195,11 @@ export default function DevLoungeModal({
     mq.addEventListener?.('change', on)
     return () => mq.removeEventListener?.('change', on)
   }, [])
-  const chillPlayer = false // the music lives in the header pill, never in the Chill Zone
   // The header music pill steps aside while the Chill Zone panel is showing (desktop), and comes back when it closes
   const chillOpen = isWide && !showGames && !chillHidden
   const hidePill = chillOpen
+  // Desktop: while the Chill Zone is open, the music player (playlist card) lives inside it
+  const chillPlayer = chillOpen
   const [chillMusicSlot, setChillMusicSlot] = useState<HTMLDivElement | null>(null)
   const toggleShareActivity = () =>
     setShareActivity((v) => {
