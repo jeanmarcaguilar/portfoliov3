@@ -99,14 +99,14 @@ export async function showLocalNotification(title: string, body: string, tag = '
   try {
     const reg = 'serviceWorker' in navigator ? await registerSW() : null
     if (reg) {
-      await reg.showNotification(title, { body, icon: '/icon-192.png', tag, renotify: true, data: { url: '/' } } as NotificationOptions)
+      await reg.showNotification(title, { body, icon: '/jims.png', tag, renotify: true, data: { url: '/' } } as NotificationOptions)
       return
     }
   } catch (err) {
     console.warn('[push] service worker notification failed', err)
   }
   try {
-    new Notification(title, { body, tag, icon: '/icon-192.png' })
+    new Notification(title, { body, tag, icon: '/jims.png' })
   } catch (err) {
     console.warn('[push] local notification failed', err)
   }
