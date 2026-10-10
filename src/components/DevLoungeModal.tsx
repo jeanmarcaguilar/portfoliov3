@@ -66,30 +66,42 @@ function playPing() {
 }
 
 /* ---------- browser notifications ---------- */
-let notificationPermission: NotificationPermission = 'default'
 let lastNotificationAt = 0
 
 async function requestNotificationPermission(): Promise<boolean> {
-  if (typeof window === 'undefined' || !('Notification' in window)) return false
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    console.log('[Notifications] Not supported in this environment')
+    return false
+  }
   if (Notification.permission === 'granted') {
-    notificationPermission = 'granted'
+    console.log('[Notifications] Already granted')
     return true
   }
   if (Notification.permission !== 'denied') {
+    console.log('[Notifications] Requesting permission...')
     const result = await Notification.requestPermission()
-    notificationPermission = result
+    console.log('[Notifications] Permission result:', result)
     return result === 'granted'
   }
+  console.log('[Notifications] Permission denied')
   return false
 }
 
 function showBrowserNotification(title: string, body: string, icon?: string) {
-  if (typeof window === 'undefined' || !('Notification' in window)) return
-  if (notificationPermission !== 'granted') return
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    console.log('[Notifications] Cannot show: not supported')
+    return
+  }
+  if (Notification.permission !== 'granted') {
+    console.log('[Notifications] Cannot show: permission not granted, current:', Notification.permission)
+    return
+  }
   
   const now = Date.now()
   if (now - lastNotificationAt < 1000) return // debounce: several events at once = one notification
   lastNotificationAt = now
+  
+  console.log('[Notifications] Showing:', title, body)
   
   try {
     const notification = new Notification(title, {
@@ -107,7 +119,7 @@ function showBrowserNotification(title: string, body: string, icon?: string) {
     // Auto-close after 5 seconds
     setTimeout(() => notification.close(), 5000)
   } catch (err) {
-    console.warn('Failed to show browser notification:', err)
+    console.warn('[Notifications] Failed to show:', err)
   }
 }
 
@@ -2382,7 +2394,9 @@ export default function DevLoungeModal({
     const unlock = () => {
       unlockPing()
       // Also request notification permission on first interaction
-      requestNotificationPermission()
+      requestNotificationPermission().then(granted => {
+        console.log('[Notifications] Permission requested on interaction, granted:', granted)
+      })
       events.forEach((ev) => window.removeEventListener(ev, unlock))
     }
     events.forEach((ev) => window.addEventListener(ev, unlock))
