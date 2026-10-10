@@ -2364,6 +2364,8 @@ export default function DevLoungeModal({
       window.removeEventListener('click', onTap, true)
       void enablePush(deviceId).then((r) => {
         if (r === 'ok') showToast('Notifications are on 🔔')
+        else if (r === 'no-key' || r === 'save-failed') showToast('Notifications are on while the lounge is open. Background push is not set up yet')
+        else if (r !== 'denied') console.warn('[push] could not enable:', r)
       })
     }
     window.addEventListener('click', onTap, true)

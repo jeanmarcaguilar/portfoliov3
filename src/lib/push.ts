@@ -60,18 +60,20 @@ async function getOrCreateSub(reg: ServiceWorkerRegistration) {
 
 /** True when a first tap can safely trigger the permission prompt (not yet decided, and installed on iPhone). */
 export const canAutoEnablePush = () =>
-  pushSupported() && !!VAPID_PUBLIC_KEY && Notification.permission === 'default' && !(isIOS() && !isStandalone())
+  typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default' && !(isIOS() && !isStandalone())
 
 /** Call from a real tap/click (iOS only allows the permission prompt from a user gesture). */
 export async function enablePush(deviceId: string): Promise<PushResult> {
   if (isIOS() && !isStandalone()) return 'ios-install'
-  if (!pushSupported()) return 'unsupported'
-  if (!VAPID_PUBLIC_KEY) return 'no-key' // VITE_VAPID_PUBLIC_KEY was not set when the site was built
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported'
   try {
+    // Ask first: even without background push set up, in-app notifications (mentions, DMs...) work once this is granted.
     const permission = await Notification.requestPermission()
     if (permission !== 'granted') return 'denied'
+    if (!pushSupported()) return 'unsupported'
     const reg = await registerSW()
     if (!reg) return 'error'
+    if (!VAPID_PUBLIC_KEY) return 'no-key' // VITE_VAPID_PUBLIC_KEY was not set when the site was built
     return (await saveSubscription(deviceId, await getOrCreateSub(reg))) ? 'ok' : 'save-failed'
   } catch (err) {
     console.warn('[push] enable failed', err)
@@ -91,12 +93,20 @@ export async function syncPush(deviceId: string) {
   }
 }
 
-/** Mobile-safe in-app notification (Android blocks `new Notification()`). */
+/** In-app notification: through the service worker (needed on phones), plain Notification as a desktop fallback. */
 export async function showLocalNotification(title: string, body: string, tag = 'lounge') {
-  if (!pushSupported() || Notification.permission !== 'granted') return
+  if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return
   try {
-    const reg = (await navigator.serviceWorker.getRegistration()) ?? (await registerSW())
-    await reg?.showNotification(title, { body, icon: '/icon-192.png', tag, renotify: true, data: { url: '/' } } as NotificationOptions)
+    const reg = 'serviceWorker' in navigator ? await registerSW() : null
+    if (reg) {
+      await reg.showNotification(title, { body, icon: '/icon-192.png', tag, renotify: true, data: { url: '/' } } as NotificationOptions)
+      return
+    }
+  } catch (err) {
+    console.warn('[push] service worker notification failed', err)
+  }
+  try {
+    new Notification(title, { body, tag, icon: '/icon-192.png' })
   } catch (err) {
     console.warn('[push] local notification failed', err)
   }
