@@ -7,7 +7,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(d.title || 'Dev Lounge', {
       body: d.body || '',
-      icon: d.icon || '/icon-192.png',
+      icon: d.icon || '/jims.png',
       tag: d.tag || 'lounge',
       renotify: true,
       data: { url: d.url || '/' },
