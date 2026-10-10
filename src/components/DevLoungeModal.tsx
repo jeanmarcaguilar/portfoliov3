@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import LoungeGames, { type DuelBus } from './LoungeGames'
 import ChillZone, { type ChillMember } from './ChillZone'
 import { sounds } from '@/utils/soundManager'
+import { enablePush, syncPush, showLocalNotification, pushInvite, canAutoEnablePush } from '@/lib/push'
 
 export const LOUNGE_OPEN_EVENT = 'lounge:open'
 
@@ -65,62 +66,14 @@ function playPing() {
   }
 }
 
-/* ---------- browser notifications ---------- */
+/* ---------- browser notifications (go through the service worker so they work on phones) ---------- */
 let lastNotificationAt = 0
 
-async function requestNotificationPermission(): Promise<boolean> {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    console.log('[Notifications] Not supported in this environment')
-    return false
-  }
-  if (Notification.permission === 'granted') {
-    console.log('[Notifications] Already granted')
-    return true
-  }
-  if (Notification.permission !== 'denied') {
-    console.log('[Notifications] Requesting permission...')
-    const result = await Notification.requestPermission()
-    console.log('[Notifications] Permission result:', result)
-    return result === 'granted'
-  }
-  console.log('[Notifications] Permission denied')
-  return false
-}
-
-function showBrowserNotification(title: string, body: string, icon?: string) {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    console.log('[Notifications] Cannot show: not supported')
-    return
-  }
-  if (Notification.permission !== 'granted') {
-    console.log('[Notifications] Cannot show: permission not granted, current:', Notification.permission)
-    return
-  }
-  
+function showBrowserNotification(title: string, body: string, tag = 'lounge') {
   const now = Date.now()
-  if (now - lastNotificationAt < 1000) return // debounce: several events at once = one notification
+  if (now - lastNotificationAt < 1000) return // several events at once = one notification
   lastNotificationAt = now
-  
-  console.log('[Notifications] Showing:', title, body)
-  
-  try {
-    const notification = new Notification(title, {
-      body,
-      icon: icon || '/favicon.ico',
-      tag: 'lounge-notification',
-    })
-    
-    // Focus the window when notification is clicked
-    notification.onclick = () => {
-      window.focus()
-      notification.close()
-    }
-    
-    // Auto-close after 5 seconds
-    setTimeout(() => notification.close(), 5000)
-  } catch (err) {
-    console.warn('[Notifications] Failed to show:', err)
-  }
+  void showLocalNotification(title, body, tag)
 }
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -2368,7 +2321,6 @@ export default function DevLoungeModal({
   const [groupDismissed, setGroupDismissed] = useState<Record<string, boolean>>({})
   const activeChatRef = useRef('global')
   const conversationsRef = useRef<Conversation[]>([])
-  const memberByDeviceRef = useRef<Map<string, LoungeMember>>(new Map())
   activeChatRef.current = activeChat
 
   // Visible feedback instead of silent console errors
@@ -2393,15 +2345,31 @@ export default function DevLoungeModal({
     const events = ['pointerdown', 'keydown', 'touchstart'] as const
     const unlock = () => {
       unlockPing()
-      // Also request notification permission on first interaction
-      requestNotificationPermission().then(granted => {
-        console.log('[Notifications] Permission requested on interaction, granted:', granted)
-      })
       events.forEach((ev) => window.removeEventListener(ev, unlock))
     }
     events.forEach((ev) => window.addEventListener(ev, unlock))
     return () => events.forEach((ev) => window.removeEventListener(ev, unlock))
   }, [])
+
+  // Already allowed notifications before? Keep this device's push subscription saved.
+  useEffect(() => {
+    if (deviceId) void syncPush(deviceId)
+  }, [deviceId])
+
+  // Turn notifications on automatically: browsers only show the Allow prompt after a real tap,
+  // so the first tap anywhere in the open lounge asks for it (no need to find the bell).
+  useEffect(() => {
+    if (!open || !deviceId || !canAutoEnablePush()) return
+    const onTap = () => {
+      window.removeEventListener('click', onTap, true)
+      void enablePush(deviceId).then((r) => {
+        if (r === 'ok') showToast('Notifications are on 🔔')
+      })
+    }
+    window.addEventListener('click', onTap, true)
+    return () => window.removeEventListener('click', onTap, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, deviceId])
 
   // Everyone who has joined, keyed by device so reactions can show real names
   const memberByDevice = useMemo(() => {
@@ -2409,6 +2377,7 @@ export default function DevLoungeModal({
     allMembers.forEach((m) => map.set(m.deviceId, m))
     return map
   }, [allMembers])
+  const memberByDeviceRef = useRef(memberByDevice)
   memberByDeviceRef.current = memberByDevice
 
   // One regex that recognises "@Name" for every known member (names may contain spaces)
@@ -2625,11 +2594,11 @@ export default function DevLoungeModal({
       if (!convKey || isMention || isDm) playPing()
       if (isMention) {
         showToast(`${m.author} mentioned you`)
-        showBrowserNotification(`${m.author} mentioned you`, m.text?.substring(0, 100) || 'Check the chat')
+        showBrowserNotification(`${m.author} mentioned you`, m.text?.substring(0, 100) || 'Check the chat', `chat-${chatKey}`)
       } else if (conv && elsewhere) {
         const toastMsg = conv.kind === 'dm' ? `${m.author} sent you a message` : `${m.author} in ${conv.name}`
         showToast(toastMsg)
-        showBrowserNotification(toastMsg, m.text?.substring(0, 100) || 'New message')
+        showBrowserNotification(toastMsg, m.text?.substring(0, 100) || 'New message', `chat-${chatKey}`)
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2834,7 +2803,7 @@ export default function DevLoungeModal({
           setGameRefresh((n) => n + 1)
           const msg = `${payload.name} scored ${payload.score} in ${payload.game || 'Dev Trivia'}`
           showToast(msg)
-          showBrowserNotification('Game Score Update', msg)
+          showBrowserNotification('Game Score Update', msg, `game-score-${payload.deviceId}`)
         })
         // Live 1v1 messages (invites, moves, scores). Every client receives them; the games
         // only act on the ones addressed to this device.
@@ -2844,7 +2813,7 @@ export default function DevLoungeModal({
           if (payload.type === 'invite') {
             const msg = `${payload.fromName} invited you to play ${payload.game || 'a game'}`
             showToast(msg)
-            showBrowserNotification('Game Invitation', msg)
+            showBrowserNotification('Game Invitation', msg, `game-invite-${payload.from}`)
           }
           duelListeners.current.forEach((fn) => fn(payload))
         })
@@ -2866,7 +2835,7 @@ export default function DevLoungeModal({
             const name = member?.name || 'Someone'
             const msg = newProfile.note ? `${name} shared a note` : `${name} removed their note`
             showToast(msg)
-            showBrowserNotification('Note Shared', msg)
+            showBrowserNotification('Note Shared', msg, `note-${newProfile.device_id}`)
           }
           fetchData()
         })
@@ -3588,12 +3557,18 @@ export default function DevLoungeModal({
     () => ({
       send: (payload) => {
         const ch = channelRef.current
-        if (!ch || !channelReadyRef.current) return
-        ch.send({
-          type: 'broadcast',
-          event: 'duel',
-          payload: { ...payload, from: deviceIdRef.current, fromName: userNameRef.current },
-        })
+        if (ch && channelReadyRef.current) {
+          ch.send({
+            type: 'broadcast',
+            event: 'duel',
+            payload: { ...payload, from: deviceIdRef.current, fromName: userNameRef.current },
+          })
+        }
+        if (payload?.type === 'invite') {
+          // field name is a best guess: change it to whatever LoungeGames uses for the invited player's device id
+          const to = payload.to ?? payload.toId ?? payload.target ?? payload.opponentId
+          if (to && typeof to === 'string') void pushInvite(to, userNameRef.current || 'Someone', (payload.game as string) || 'a game')
+        }
       },
       subscribe: (fn) => {
         duelListeners.current.add(fn)
