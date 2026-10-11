@@ -49,9 +49,9 @@ const easeInOut = (t: number) =>
 
 /** The four steps of the run. Icons are Tabler outlines, 24-unit grid. */
 const STEPS = [
-  { label: 'Lead comes in', trigger: true, d: 'M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11' },
-  { label: 'Tag & route', trigger: false, d: 'M4 4m0 2a2 2 0 0 1 2 -2h4.5a2 2 0 0 1 1.4 .6l7 7a2 2 0 0 1 0 2.8l-4.5 4.5a2 2 0 0 1 -2.8 0l-7 -7a2 2 0 0 1 -.6 -1.4v-4.5M8 8h.01' },
-  { label: 'Follow up', trigger: false, d: 'M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10M3 7l9 6l9 -6' },
+  { label: 'New Lead Captured', trigger: true, d: 'M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11' },
+  { label: 'Qualified & routed', trigger: false, d: 'M4 4m0 2a2 2 0 0 1 2 -2h4.5a2 2 0 0 1 1.4 .6l7 7a2 2 0 0 1 0 2.8l-4.5 4.5a2 2 0 0 1 -2.8 0l-7 -7a2 2 0 0 1 -.6 -1.4v-4.5M8 8h.01' },
+  { label: 'Follow up Completed', trigger: false, d: 'M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10M3 7l9 6l9 -6' },
   { label: 'Call booked', trigger: false, d: 'M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12M16 3v4M8 3v4M4 11h16M9 16l2 2l4 -4' },
 ] as const
 
