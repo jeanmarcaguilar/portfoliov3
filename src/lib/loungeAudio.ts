@@ -27,10 +27,17 @@ class LoungeAudioEngine {
       this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime)
       this.masterGain.connect(this.ctx.destination)
     }
-    if (this.ctx.state === 'suspended') {
-      void this.ctx.resume()
-    }
     return this.ctx
+  }
+
+  private async resumeContext(): Promise<void> {
+    if (this.ctx && this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume()
+      } catch {
+        // Audio not allowed - user hasn't interacted yet
+      }
+    }
   }
 
   // Generates filtered brown/pink noise buffer
@@ -95,9 +102,11 @@ class LoungeAudioEngine {
     this.currentMode = 'off'
   }
 
-  playAmbient(type: AmbientSoundType) {
+  async playAmbient(type: AmbientSoundType) {
     this.stop()
     if (type === 'off') return
+
+    await this.resumeContext()
 
     const ctx = this.getContext()
     if (!ctx || !this.masterGain) return
@@ -140,7 +149,8 @@ class LoungeAudioEngine {
     this.currentMode = type
   }
 
-  private playCrackle() {
+  private async playCrackle() {
+    await this.resumeContext()
     const ctx = this.getContext()
     if (!ctx || !this.masterGain) return
     const osc = ctx.createOscillator()
@@ -155,7 +165,8 @@ class LoungeAudioEngine {
     osc.stop(ctx.currentTime + 0.04)
   }
 
-  playBrewChime() {
+  async playBrewChime() {
+    await this.resumeContext()
     const ctx = this.getContext()
     if (!ctx) return
 
@@ -176,7 +187,8 @@ class LoungeAudioEngine {
     })
   }
 
-  playKeyClick() {
+  async playKeyClick() {
+    await this.resumeContext()
     const ctx = this.getContext()
     if (!ctx) return
     const osc = ctx.createOscillator()

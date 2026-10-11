@@ -31,22 +31,22 @@ function getPingCtx(): AudioContext | null {
 }
 // Browsers keep audio muted until the person has clicked / tapped / typed on the page once.
 // Called from the first interaction so the ding is allowed to play later, when a message arrives.
-function unlockPing() {
+async function unlockPing() {
   try {
     const ctx = getPingCtx()
-    if (ctx && ctx.state === 'suspended') void ctx.resume()
+    if (ctx && ctx.state === 'suspended') await ctx.resume()
   } catch {
     /* audio unsupported */
   }
 }
-function playPing() {
+async function playPing() {
   try {
     const now = Date.now()
     if (now - lastPingAt < 400) return // several messages at once = one ding
     lastPingAt = now
     const ctx = getPingCtx()
     if (!ctx) return
-    if (ctx.state === 'suspended') void ctx.resume()
+    if (ctx.state === 'suspended') await ctx.resume()
     const t0 = ctx.currentTime
     ;[880, 1318.5].forEach((freq, i) => {
       const osc = ctx.createOscillator()
@@ -2347,7 +2347,7 @@ export default function DevLoungeModal({
   useEffect(() => {
     const events = ['pointerdown', 'keydown', 'touchstart'] as const
     const unlock = () => {
-      unlockPing()
+      void unlockPing()
       events.forEach((ev) => window.removeEventListener(ev, unlock))
     }
     events.forEach((ev) => window.addEventListener(ev, unlock))
@@ -2596,7 +2596,7 @@ export default function DevLoungeModal({
       const isMention = !!mentionRe?.test(m.text ?? '')
       const isDm = conv?.kind === 'dm'
       // Sound: any new message in the global chat, a direct message to me, or an @mention of me
-      if (!convKey || isMention || isDm) playPing()
+      if (!convKey || isMention || isDm) void playPing()
       if (isMention) {
         showToast(`${m.author} mentioned you`)
         showBrowserNotification(`${m.author} mentioned you`, m.text?.substring(0, 100) || 'Check the chat', `chat-${chatKey}`)

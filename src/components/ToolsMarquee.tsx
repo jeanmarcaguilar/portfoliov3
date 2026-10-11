@@ -41,7 +41,7 @@ export const tools: Tool[] = [
   { name: 'Figma',         iconPath: 'https://cdn.simpleicons.org/figma' },
   { name: 'Framer',        iconPath: 'https://cdn.simpleicons.org/framer' },
   { name: 'HTML5',         iconPath: 'https://cdn.simpleicons.org/html5' },
-  { name: 'CSS3',          iconPath: 'https://cdn.simpleicons.org/css3' },
+  { name: 'CSS3',          iconPath: 'https://cdn.simpleicons.org/css' },
   { name: 'JavaScript',    iconPath: 'https://cdn.simpleicons.org/javascript' },
   { name: 'TypeScript',    iconPath: 'https://cdn.simpleicons.org/typescript' },
   { name: 'React',         iconPath: '/icons/ai/react.svg',         color: '#61DAFB' },

@@ -24,7 +24,7 @@ const TECH_SECTIONS: TechSection[] = [
     title: 'Frontend Development',
     techs: [
       { name: 'HTML5', desc: 'Semantic markup as the foundation of every page.', icon: 'https://cdn.simpleicons.org/html5' },
-      { name: 'CSS3', desc: 'Styling, layout, and responsive design fundamentals.', icon: 'https://cdn.simpleicons.org/css3' },
+      { name: 'CSS3', desc: 'Styling, layout, and responsive design fundamentals.', icon: 'https://cdn.simpleicons.org/css' },
       { name: 'JavaScript', desc: 'Core language for interactive, dynamic UI.', icon: 'https://cdn.simpleicons.org/javascript' },
       { name: 'TypeScript', desc: 'Type-safe JavaScript for fewer runtime surprises.', icon: 'https://cdn.simpleicons.org/typescript' },
       { name: 'React', desc: 'Building fast, component-driven interfaces.', icon: '/icons/ai/react.svg' },

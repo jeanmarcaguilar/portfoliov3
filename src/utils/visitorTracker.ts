@@ -46,7 +46,7 @@ async function getIPAddress(): Promise<string> {
  */
 async function getLocation(ip: string): Promise<VisitorData['location']> {
   try {
-    const response = await fetch(`http://ip-api.com/json/${ip}`);
+    const response = await fetch(`https://ip-api.com/json/${ip}`);
     const data = await response.json();
     
     if (data.status === 'success') {
