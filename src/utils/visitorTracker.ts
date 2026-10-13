@@ -47,8 +47,15 @@ async function getIPAddress(): Promise<string> {
 async function getLocation(ip: string): Promise<VisitorData['location']> {
   try {
     const response = await fetch(`https://ip-api.com/json/${ip}`);
+
+    // Handle rate limiting (403) and other errors gracefully
+    if (!response.ok) {
+      // Silently return empty location on rate limit or server errors
+      return {};
+    }
+
     const data = await response.json();
-    
+
     if (data.status === 'success') {
       return {
         city: data.city,
@@ -60,7 +67,7 @@ async function getLocation(ip: string): Promise<VisitorData['location']> {
     }
     return {};
   } catch (error) {
-    console.error('Error getting location:', error);
+    // Silently handle errors - location is optional for visitor tracking
     return {};
   }
 }
