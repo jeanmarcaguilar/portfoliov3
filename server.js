@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import nodemailer from 'nodemailer';
+import rateLimit from 'express-rate-limit';
+import { createClient } from '@supabase/supabase-js';
 import { claimIp, releaseIp } from './_seenIp.js';
 
 dotenv.config();
@@ -10,6 +12,45 @@ dotenv.config();
 console.log('Environment variables loaded:');
 console.log('GMAIL_USER:', process.env.GMAIL_USER ? 'SET' : 'NOT SET');
 console.log('GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? 'SET' : 'NOT SET');
+
+// Supabase admin client with service role key (server-side only, never exposed to frontend)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.warn('Warning: Supabase service role key not set. Some admin features will be disabled.');
+}
+
+const supabaseAdmin = supabaseUrl && supabaseServiceKey
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null;
+
+// Rate limiting to prevent API abuse
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// API Key authentication middleware
+const authenticateApiKey = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  const validApiKey = process.env.API_KEY;
+
+  // Skip auth if no API key is configured (development mode)
+  if (!validApiKey) {
+    console.warn('Warning: No API_KEY configured. API is open to all requests.');
+    return next();
+  }
+
+  if (!apiKey || apiKey !== validApiKey) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid or missing API key' });
+  }
+
+  next();
+};
 
 /* -------------------------------------------------------------------------- */
 /*  Visitor notification email – Portfolio design system                      */
@@ -317,8 +358,9 @@ const PORT = 3000;
 
 app.use(cors());
 app.use(bodyParser.json());
+app.use('/api/', apiLimiter);
 
-app.post('/api/track-visitor', async (req, res) => {
+app.post('/api/track-visitor', authenticateApiKey, async (req, res) => {
   console.log('Received visitor tracking request');
 
   let claimedIp = null;

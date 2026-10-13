@@ -167,6 +167,7 @@ export async function trackVisitor(): Promise<void> {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-API-Key': import.meta.env.VITE_API_KEY || '',
         },
         body: JSON.stringify(visitorData),
       });
