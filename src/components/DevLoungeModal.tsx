@@ -2,7 +2,7 @@ import { Fragment, useState, useRef, useEffect, useCallback, useMemo, type React
 import { createPortal } from 'react-dom'
 import { X, CaretRight, Plus } from '@/components/slab'
 import { useDismiss, type DismissReason } from '@/hooks/useDismiss'
-import { supabase } from '@/lib/supabase'
+import { supabase, ensureSession } from '@/lib/supabase'
 import LoungeGames, { type DuelBus } from './LoungeGames'
 import ChillZone, { type ChillMember } from './ChillZone'
 import { sounds } from '@/utils/soundManager'
@@ -2095,12 +2095,14 @@ export default function DevLoungeModal({
   // Live-sync bookkeeping
   const fetchSeq = useRef(0) // newest fetch wins; older responses are dropped
   const lastFetchAt = useRef(0)
+  const fetchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const pendingWrites = useRef(0) // my own in-flight sends/edits/reactions
   const writeEpoch = useRef(0) // bumps whenever a write starts or ends
   const realtimeAliveRef = useRef(false) // true once a realtime event has actually arrived
 
   // Device & User State
   const [deviceId, setDeviceId] = useState<string>('')
+  const [authUid, setAuthUid] = useState('') // verified Supabase user id
   const [userName, setUserName] = useState<string>('')
   const [userNote, setUserNote] = useState<string>('')
   const [userNoteUpdatedAt, setUserNoteUpdatedAt] = useState<string>('')
@@ -2711,7 +2713,7 @@ export default function DevLoungeModal({
     const poll = setInterval(() => {
       if (!open || document.visibilityState !== 'visible') return
       // Realtime delivering? then only a slow safety sync. Not delivering? poll quickly.
-      const every = realtimeAliveRef.current ? 30000 : 4000
+      const every = realtimeAliveRef.current ? 60000 : 10000
       if (Date.now() - lastFetchAt.current >= every) fetchData()
     }, 2000)
 
@@ -2724,13 +2726,18 @@ export default function DevLoungeModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  // Sign in anonymously once; the verified user id becomes the device id
+  useEffect(() => {
+    localStorage.removeItem('lounge_device_id') // old self-made ID, no longer trusted
+    ensureSession()
+      .then(setAuthUid)
+      .catch((e) => console.error('[lounge] sign-in failed', e))
+  }, [])
+
   // Initialize Device ID & Supabase Realtime Subscription
   useEffect(() => {
-    let devId = localStorage.getItem('lounge_device_id')
-    if (!devId) {
-      devId = 'dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36)
-      localStorage.setItem('lounge_device_id', devId)
-    }
+    if (!authUid) return
+    const devId = authUid
     setDeviceId(devId)
     checkUserRegistration(devId)
 
@@ -2902,7 +2909,8 @@ export default function DevLoungeModal({
       Object.values(typingTimers.current).forEach(clearTimeout)
       teardown()
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUid])
 
   // Opening the lounge: if the connection went stale, rebuild it now; otherwise refresh who is online
   useEffect(() => {
@@ -2967,12 +2975,24 @@ export default function DevLoungeModal({
     }
   }
 
-  const fetchData = async () => {
+  // Many events (realtime, focus, every write) ask for a refresh at once.
+  // Merge them into ONE refresh, at most every ~1.5s, instead of six requests per event.
+  const fetchData = () => {
+    if (fetchTimer.current) return // a refresh is already queued
+    const wait = Math.max(300, 1500 - (Date.now() - lastFetchAt.current))
+    fetchTimer.current = setTimeout(() => {
+      fetchTimer.current = undefined
+      void fetchDataNow()
+    }, wait)
+  }
+
+  const fetchDataNow = async () => {
+    const meId = deviceIdRef.current
+    if (!meId) return // not signed in yet
     const seq = ++fetchSeq.current
     const epoch = writeEpoch.current
     lastFetchAt.current = Date.now()
 
-    const meId = deviceIdRef.current || localStorage.getItem('lounge_device_id') || ''
     const [msgRes, profileRes, memberRes, reactionRes, convRes, noteReactRes]: any[] = await Promise.all([
       supabase.from('lounge_messages').select('*').order('created_at', { ascending: true }),
       supabase.from('lounge_profiles').select('*').order('created_at', { ascending: false }).limit(10),
